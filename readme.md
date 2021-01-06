@@ -20,6 +20,9 @@
 
 ## Development
 
+<details>
+<summary><strong><code>Development notes, check if you have interests.</code></strong></summary>
+
 hierarchy
 ```
 XiamiExports/
@@ -46,3 +49,4 @@ features
 - [ ] export fav albums
 - [ ] export playlists (both personal and fav)
 - [ ] export artists
+</details>
