@@ -85,10 +85,6 @@ class Config:
 cfg = Config()
 
 
-@click.group()
-def cli():
-    pass
-
 
 def check_fetch():
     file_path = 'fetch.py'
@@ -98,6 +94,18 @@ def check_fetch():
         sys.exit(1)
 
     return load_fetch_module(file_path)
+
+
+def get_client():
+    session = check_fetch()
+    client = XiamiClient(session)
+    client.set_user_id(cfg.user_id)
+    return client
+
+
+@click.group()
+def cli():
+    pass
 
 
 @cli.command()
@@ -111,11 +119,10 @@ def init():
         cfg.save()
 
 
-def get_client():
-    session = check_fetch()
-    client = XiamiClient(session)
-    client.set_user_id(cfg.user_id)
-    return client
+@cli.command()
+def check():
+    check_fetch()
+    click.echo('Success, you can now use the export commands')
 
 
 @cli.command(help='export fav songs as json files')
