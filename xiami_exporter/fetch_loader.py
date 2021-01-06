@@ -1,7 +1,6 @@
 import json
 import requests
 from requests.cookies import cookiejar_from_dict
-from requests.utils import dict_from_cookiejar
 from urllib.parse import urlparse, parse_qs
 from .http_util import cookie_str_to_dict
 from .client import create_token
@@ -34,7 +33,6 @@ def fetch(url, args):
     # print(f'recal  token: {get_md5_hex(v.encode())}')
     # print(f'actual token: {param_s}')
 
-
     headers = args['headers']
     cookies = cookie_str_to_dict(headers['cookie'])
     # print(cookies)
@@ -56,7 +54,7 @@ def fetch(url, args):
     data = r.json()
     if data['code'] == 'SUCCESS':
         session = s
-        print(f'test fetch() ok')
+        print('test fetch() ok')
         if param_s:
             q_dict = None
             if param_q:

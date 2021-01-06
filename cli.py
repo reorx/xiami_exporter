@@ -5,7 +5,7 @@ import time
 import logging
 import click
 from xiami_exporter.client import XiamiClient
-from xiami_exporter.fetch_importer import load_fetch_module
+from xiami_exporter.fetch_loader import load_fetch_module
 
 
 lg = logging.getLogger('cli')
@@ -82,7 +82,7 @@ def init():
 def get_client():
     check_fetch()
 
-    from xiami_exporter.fetch_importer import session
+    from xiami_exporter.fetch_loader import session
 
     client = XiamiClient(session)
     return client
@@ -96,7 +96,7 @@ def export_fav_songs(page):
 
 def main():
     import fetch  # noqa
-    from xiami_exporter.fetch_importer import session
+    from xiami_exporter.fetch_loader import session
 
     client = HTTPClient(
         session,
