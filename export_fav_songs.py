@@ -1,10 +1,14 @@
 import json
 import os
 import time
+import logging
 from xiami_exporter.client import HTTPClient
 
 
 dir_path = 'exports'
+
+logging.basicConfig(level=logging.INFO)
+
 
 def main():
     import fetch

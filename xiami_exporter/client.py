@@ -5,9 +5,15 @@ import requests
 from .http_util import get_cookie_from_cookiejar
 
 
+lg = logging.getLogger('xiami.client')
+
+
 class HTTPClient:
-    def __init__(self, session, base_uri, headers=None):
-        self.base_uri = base_uri
+    base_uri = None
+
+    def __init__(self, session, base_uri=None, headers=None):
+        if base_uri:
+            self.base_uri = base_uri
         self.headers = headers or {}
         self.session = session
 
@@ -27,11 +33,11 @@ class HTTPClient:
                 kwargs['headers'].update({
                     'Content-Type': 'application/json',
                 })
-        logging.debug(
+        lg.debug(
             'HTTPClient request, %s, %s, %s, %s',
             method, url, args, kwargs)
         resp = getattr(self.session, method)(url, *args, **kwargs)
-        logging.info('Response: %s, %s', resp.status_code, resp.content[:100])
+        lg.info('Response: %s, %s', resp.status_code, resp.content[:100])
         return resp
 
     def get(self, uri, *args, **kwargs):
@@ -40,18 +46,19 @@ class HTTPClient:
     def post(self, uri, *args, **kwargs):
         return self.request('post', uri, *args, **kwargs)
 
-    def put(self, uri, *args, **kwargs):
-        return self.request('put', uri, *args, **kwargs)
 
-    def delete(self, uri, *args, **kwargs):
-        return self.request('delete', uri, *args, **kwargs)
+class XiamiClient(HTTPClient):
+    base_uri = 'https://www.xiami.com'
+
+    def __init__(self, session, headers=None):
+        super().__init__(session, headers=headers)
 
     # API methods
 
     def set_user_id(self, user_id):
         self.user_id  = user_id
 
-    def make_q(self, page, page_size):
+    def make_page_q(self, page, page_size):
         q = {
             "userId": self.user_id,
             "type": 1,
@@ -63,9 +70,9 @@ class HTTPClient:
         return q
 
     def get_fav_songs(self, page, page_size=30):
-        print(f'get_fav_songs: page={page}')
+        lg.info(f'get_fav_songs: page={page}')
         uri = '/api/favorite/getFavorites'
-        q = self.make_q(page, page_size)
+        q = self.make_page_q(page, page_size)
         params = {
             '_q': param_json_dump(q),
             '_s': create_token(self.session, uri, q),
@@ -77,6 +84,19 @@ class HTTPClient:
         # when out of max page, songs is "null"
         return data['result']['data']['songs']
 
+    def get_play_info(self, song_ids):
+        lg.info(f'get_play_info: song_ids={song_ids}')
+        uri = '/api/song/getPlayInfo'
+        q = {
+            'songIds': song_ids,
+        }
+        r = self.get(uri, params={
+            '_q': param_json_dump(q),
+            '_s': create_token(self.session, uri, q),
+        })
+        data = r.json()
+
+        return data['result']['data']['songPlayInfos']
 
 
 def param_json_dump(o):
