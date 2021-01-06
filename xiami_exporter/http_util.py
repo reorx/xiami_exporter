@@ -97,11 +97,16 @@ def time_based_filename(ext):
     return f'{prefix}{ext}'
 
 
-def save_response_to_file(resp, file_path=None, dir_path=None, file_name=None, mode='wb', logger=None):
+def save_response_to_file(resp, file_path=None, dir_path=None, file_name=None, mode='wb', stream=False, block_size=1024 * 512, logger=None):
     if not file_path and not dir_path:
         raise ValueError('file_path and dir_path must have at least one')
     if not file_path:
         file_path = os.path.join(dir_path, file_name)
     if logger:
         logger.info(f'save response to {file_path}')
-    save_file(resp.content, file_path)
+    with open(file_path, mode) as f:
+        if stream:
+            for block in resp.iter_content(block_size):
+                f.write(block)
+        else:
+            f.write(resp.content)

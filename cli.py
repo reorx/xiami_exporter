@@ -4,9 +4,12 @@ import sys
 import time
 import logging
 import click
+from urllib.parse import urlparse
 from xiami_exporter.client import XiamiClient
 from xiami_exporter.fetch_loader import load_fetch_module
 from xiami_exporter.io import ensure_dir
+from xiami_exporter.litekv import LiteKV
+from xiami_exporter.http_util import save_response_to_file
 
 
 lg = logging.getLogger('cli')
@@ -18,6 +21,7 @@ logging.basicConfig(level=logging.INFO)
 class Config:
     dir_path = 'XiamiExports'
     user_id = ''
+    db_name = 'db.sqlite3'
 
     class Meta:
         file_path = 'config.json'
@@ -46,6 +50,10 @@ class Config:
     @property
     def covers_dir(self):
         return os.path.join(self.dir_path, 'covers')
+
+    @property
+    def db_path(self):
+        return os.path.join(self.dir_path, self.db_name)
 
     def load(self):
         with open(self.Meta.file_path, 'r') as f:
@@ -85,7 +93,6 @@ class Config:
 cfg = Config()
 
 
-
 def check_fetch():
     file_path = 'fetch.py'
     if not os.path.exists(file_path):
@@ -101,6 +108,10 @@ def get_client():
     client = XiamiClient(session)
     client.set_user_id(cfg.user_id)
     return client
+
+
+def get_db():
+    return LiteKV(cfg.db_path)
 
 
 @click.group()
@@ -150,6 +161,70 @@ def export_fav_songs(page):
             break
         page += 1
         time.sleep(1)
+
+
+def download_songs(songs, client, db):
+    """
+    songs:
+    {
+        id:
+        name:
+        album:
+    }
+    """
+    ensure_dir(cfg.music_dir)
+    song_ids = []
+    for i in songs:
+        song_id = i['id']
+        song_ids.append(song_id)
+        song_store = db.get(song_id)
+        if not song_store:
+            song_store = dict(i)
+            song_store.update({
+                'download_status': 0,
+            })
+            db.set(song_id, json.dumps(song_store))
+
+    items = client.get_play_info(song_ids)
+    for item in items:
+        song_store = json.loads(db.get(item['songId']))
+        playinfo = sorted(item['playInfos'], key=lambda x: x['fileSize'], reverse=True)[0]
+        if playinfo['fileSize'] == 0:
+            print(f'no valid file in playinfo: id={song_store["id"]}  name={song_store["name"]} album={song_store["album"]}')
+            song_store['download_status'] = -1
+            db.set(song_store['id'], json.dumps(song_store))
+            continue
+
+        # print(playinfo)
+        url = playinfo['listenFile']
+        resp = client.session.get(url)
+        url_parsed = urlparse(url)
+        file_name = os.path.basename(url_parsed.path)
+        if song_store['name']:
+            _, ext = os.path.splitext(file_name)
+            file_name = song_store['name'] + ext
+
+        file_path = os.path.join(cfg.music_dir, file_name)
+        save_response_to_file(resp, file_path=file_path, logger=lg)
+
+
+@cli.command(help='export fav songs as json files')
+@click.option('--song-id', '-i', default='', help='song id, in all number format (e.g. 1769839259)')
+def download_music(song_id):
+    cfg.load()
+    client = get_client()
+    db = get_db()
+
+    if song_id:
+        song_ids = song_id.split(',')
+        songs = []
+        for i in song_ids:
+            songs.append({
+                'id': i,
+                'name': '',
+                'album': '',
+            })
+        download_songs(songs, client, db)
 
 
 if __name__ == '__main__':
