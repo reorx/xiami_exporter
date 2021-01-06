@@ -37,7 +37,7 @@ class HTTPClient:
             'HTTPClient request, %s, %s, %s, %s',
             method, url, args, kwargs)
         resp = getattr(self.session, method)(url, *args, **kwargs)
-        lg.info('Response: %s, %s', resp.status_code, resp.content[:100])
+        lg.debug('Response: %s, %s', resp.status_code, resp.content[:100])
         return resp
 
     def get(self, uri, *args, **kwargs):

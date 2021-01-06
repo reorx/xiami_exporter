@@ -2,3 +2,4 @@ venv/
 __pycache__/
 XiamiExports/
 config.json
+fetch.py

@@ -65,6 +65,9 @@ def fetch(url, args):
             else:
                 print(f'recal token unequal:\n- recal : {token}\n- actual: {param_s}')
                 raise Exception('stop proceessing due to token recal failure')
+    else:
+        print(f'test fetch() failed: {r.text}')
+        raise Exception('stop proceessing due to response failed')
     # print(data, r.headers)
     # print(dict_from_cookiejar(s.cookies))
 
@@ -72,3 +75,5 @@ def fetch(url, args):
 def load_fetch_module(file_path):
     with open(file_path, 'r') as f:
         exec(f.read())
+
+    return session
