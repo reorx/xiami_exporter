@@ -69,3 +69,8 @@ def fetch(url, args):
                 raise Exception('stop proceessing due to token recal failure')
     # print(data, r.headers)
     # print(dict_from_cookiejar(s.cookies))
+
+
+def load_fetch_module(file_path):
+    with open(file_path, 'r') as f:
+        exec(f.read())
