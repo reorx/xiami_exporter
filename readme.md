@@ -10,6 +10,13 @@
 ## Instruction
 
 1. Clone 项目，创建 Python 3 虚拟环境，安装所有依赖
+
+   ```
+   $ python -m venv venv
+   $ source venv/bin/activate
+   $ pip install -r requirements.txt
+   ```
+
 2. 在 Chrome 中登录虾米，点击 “我的音乐”，从 URL 中获取 user_id，例如 `https://www.xiami.com/user/932367`, user_id 即为 `932367`.
 3. 运行 `python cli.py init`，根据提示，输入配置项，其中包括刚刚获取的 user_id.
 4. 回到 Chrome “我的音乐” 页面，右键选择 “审查页面” (Inspect)，点击 “网络” (Network) 并在过滤器中选择 XHR，刷新页面，在最后一条带有 `_s` 的网络请求上点击右键，选择 “Copy - Copy as Node.js fetch”
