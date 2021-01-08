@@ -1,8 +1,9 @@
 import click
 import json
 import os
-from .io import ensure_dir
 from pathlib import Path
+from json import JSONEncoder
+from .io import ensure_dir
 
 
 class Config:
@@ -64,7 +65,7 @@ class Config:
         for k in self.Meta.keys:
             d[k] = getattr(self, k)
         with open(self.Meta.file_path, 'w') as f:
-            content = json.dumps(d, indent=2)
+            content = json.dumps(d, indent=2, cls=CustomJSONEncoder)
             click.echo(f'\nWrite config to {self.Meta.file_path}\n{content}')
             f.write(content)
 
@@ -82,3 +83,11 @@ class Config:
 
 
 cfg = Config()
+
+
+class CustomJSONEncoder(JSONEncoder):
+    def default(self, o):
+        if isinstance(o, Path):
+            return str(o)
+        else:
+            return super(ModelJSONEncoder, self).default(o)
