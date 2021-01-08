@@ -66,6 +66,11 @@ class LiteKV(object):
         for i in cur:
             yield i[0]
 
+    def items(self):
+        cur = self._conn.execute("SELECT key, value from %s" % self._table_name)
+        for i in cur:
+            yield i[0], i[1]
+
     def close(self):
         self._conn.close()
 

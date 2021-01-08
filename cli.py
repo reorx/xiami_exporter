@@ -1,4 +1,5 @@
 import json
+import re
 import os
 import sys
 import time
@@ -27,6 +28,7 @@ class Config:
         file_path = 'config.json'
         keys = ['dir_path', 'user_id']
 
+    # TODO use Path
     @property
     def json_songs_dir(self):
         return os.path.join(self.dir_path, 'json', 'songs')
@@ -208,11 +210,20 @@ def download_songs(songs, client, db):
         save_response_to_file(resp, file_path=file_path, logger=lg)
 
 
+def load_song_json(file_path, songs_dict, songs_list):
+    with open(file_path, 'r') as f:
+        data = json.loads(f.read())
+    for song in data:
+        songs_dict[song['songId']] = song
+        songs_list.append(song)
+
+
 @cli.command(help='export fav songs as json files')
+@click.argument('file', default='')
 @click.option('--song-id', '-i', default='', help='song id, in all number format (e.g. 1769839259)')
-def download_music(song_id):
+@click.option('--force', '-f', default='', help='force re-download even if song was downloaded (according to db)')
+def download_music(file, song_id, force):
     cfg.load()
-    client = get_client()
     db = get_db()
 
     if song_id:
@@ -223,8 +234,29 @@ def download_music(song_id):
                 'id': i,
                 'name': '',
                 'album': '',
+                'bak_id': '',
             })
-        download_songs(songs, client, db)
+        download_songs(songs, get_client(), db)
+    else:
+        if not file:
+            click.echo('file is required if no song ids are provided')
+            sys.exit(1)
+
+        songs_dict = {}
+        songs_list = []
+        if file == 'all':
+            # read all song json files
+            for root, dirs, files in os.walk(cfg.json_songs_dir):
+                files.sort(key=lambda x: int(re.search('\d+', x).group()))
+                print(files)
+                for file_name in files:
+                    file_path = os.path.join(cfg.json_songs_dir, file_name)
+                    load_song_json(file_path, songs_dict, songs_list)
+
+        for song in songs_list:
+            # if song['musicType'] == 0:
+            if song['bakSongId'] != 0:
+                print(f'{song["songId"]}: {song["songName"]} - {song["albumName"]} - {song["artistName"]}')
 
 
 if __name__ == '__main__':
