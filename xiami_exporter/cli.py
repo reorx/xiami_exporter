@@ -165,6 +165,7 @@ def get_audioinfos(client, song_ids, try_bak_id=True):
             'song_id': song_id,
             'url': url,
         }
+        audioinfos.append(info)
         if not url:
             if not try_bak_id:
                 continue
@@ -176,7 +177,6 @@ def get_audioinfos(client, song_ids, try_bak_id=True):
                 playinfo = get_effective_playinfo(item['songId'], item['playInfos'])
                 if playinfo:
                     info['url'] = playinfo['listenFile']
-        audioinfos.append(info)
 
     return audioinfos
 
@@ -213,7 +213,7 @@ def download_songs(client, audioinfos, update_db=True):
         else:
             download_status = DownloadStatus.UNAVAILABLE
 
-        lg.info(f'download status of {file_name}: {download_status}')
+        lg.info(f'download status of {song_id}: {DownloadStatus.to_str(download_status)}')
         if song:
             song.download_status = download_status
             song.save()

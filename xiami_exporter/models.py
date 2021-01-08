@@ -51,6 +51,13 @@ class DownloadStatus:
     UNAVAILABLE = -1
     FAILED = -9
 
+    @classmethod
+    def to_str(cls, v):
+        for k, _v in cls.__dict__.items():
+            if v == _v:
+                return k
+        return ''
+
 
 def create_song(data, row_number) -> Song:
     md = {}
