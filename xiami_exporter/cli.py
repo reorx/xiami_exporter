@@ -18,8 +18,8 @@ from .models import db, create_song, all_models, Song, DownloadStatus
 
 lg = logging.getLogger('cli')
 
-logging.basicConfig(level=logging.INFO)
-# logging.basicConfig(level=logging.DEBUG)
+is_debug = os.environ.get('XME_DEBUG')
+logging.basicConfig(level=logging.DEBUG if is_debug else logging.INFO)
 
 
 DEFAULT_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36'
@@ -154,6 +154,7 @@ def get_audioinfos(client, song_ids, try_bak_id=True):
     for item in client.get_play_info(song_ids):
         # get effective playinfo
         song_id = item["songId"]
+        lg.debug(f'get_play_info: {item}')
         playinfo = get_effective_playinfo(song_id, item['playInfos'])
         if playinfo:
             urls_dict[song_id] = playinfo['listenFile']
