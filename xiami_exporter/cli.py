@@ -5,94 +5,20 @@ import sys
 import time
 import logging
 import click
+from collections import OrderedDict
 from urllib.parse import urlparse
 from .client import XiamiClient
 from .fetch_loader import load_fetch_module
 from .io import ensure_dir
-from .litekv import LiteKV
 from .http_util import save_response_to_file
+from .config import cfg
+from .models import db, create_song, all_models
 
 
 lg = logging.getLogger('cli')
 
 logging.basicConfig(level=logging.INFO)
 # logging.basicConfig(level=logging.DEBUG)
-
-
-class Config:
-    dir_path = 'XiamiExports'
-    user_id = ''
-    db_name = 'db.sqlite3'
-
-    class Meta:
-        file_path = 'config.json'
-        keys = ['dir_path', 'user_id']
-
-    # TODO use Path
-    @property
-    def json_songs_dir(self):
-        return os.path.join(self.dir_path, 'json', 'songs')
-
-    @property
-    def json_albums_dir(self):
-        return os.path.join(self.dir_path, 'json', 'albums')
-
-    @property
-    def json_playlists_dir(self):
-        return os.path.join(self.dir_path, 'json', 'playlists')
-
-    @property
-    def json_artists_dir(self):
-        return os.path.join(self.dir_path, 'json', 'artists')
-
-    @property
-    def music_dir(self):
-        return os.path.join(self.dir_path, 'music')
-
-    @property
-    def covers_dir(self):
-        return os.path.join(self.dir_path, 'covers')
-
-    @property
-    def db_path(self):
-        return os.path.join(self.dir_path, self.db_name)
-
-    def load(self):
-        with open(self.Meta.file_path, 'r') as f:
-            d = json.loads(f.read())
-        for k, v in d.items():
-            setattr(self, k, v)
-
-        # load from env
-        _dir_path = os.environ.get('XME_DIR_PATH')
-        if _dir_path:
-            self.dir_path = _dir_path
-
-        ensure_dir(self.dir_path)
-
-    def save(self):
-        d = {}
-        for k in self.Meta.keys:
-            d[k] = getattr(self, k)
-        with open(self.Meta.file_path, 'w') as f:
-            content = json.dumps(d, indent=2)
-            click.echo(f'\nWrite config to {self.Meta.file_path}\n{content}')
-            f.write(content)
-
-    def update_from_input(self):
-        click.echo('\nInput config')
-        for k in self.Meta.keys:
-            hint = ''
-            _v = getattr(self, k)
-            if _v:
-                hint = f' (default "{_v}")'
-            v = input(f'  {k}{hint}: ')
-            if not v:
-                v = _v
-            setattr(self, k, v)
-
-
-cfg = Config()
 
 
 def check_fetch():
@@ -112,8 +38,10 @@ def get_client():
     return client
 
 
-def get_db():
-    return LiteKV(cfg.db_path)
+def prepare_db():
+    db.init(cfg.db_path)
+
+    db.create_tables(all_models)
 
 
 @click.group()
@@ -140,7 +68,7 @@ def check():
 
 @cli.command(help='export fav songs as json files')
 @click.option('--page', '-p', default='', help='page number, if omitted, all pages will be exported')
-def export_fav_songs(page):
+def export_songs(page):
     cfg.load()
     client = get_client()
 
@@ -165,7 +93,49 @@ def export_fav_songs(page):
         time.sleep(1)
 
 
-def download_songs(songs, client, db):
+def load_song_json(file_path, songs_dict: OrderedDict):
+    with open(file_path, 'r') as f:
+        data = json.loads(f.read())
+    for song in data:
+        songs_dict[song['songId']] = song
+
+
+def load_all_song_json():
+    songs_dict = OrderedDict()
+
+    # read all song json files
+    for root, dirs, files in os.walk(cfg.json_songs_dir):
+        files.sort(key=lambda x: int(re.search(r'\d+', x).group()))
+        lg.debug(f'sorted files: {files}')
+
+        for file_name in files:
+            file_path = os.path.join(cfg.json_songs_dir, file_name)
+            load_song_json(file_path, songs_dict)
+    return songs_dict
+
+
+@cli.command(help='create songs in database')
+@click.option('--clear', '-c', is_flag=True, help='clear db before inserting')
+def create_songs_db(clear):
+    cfg.load()
+    prepare_db()
+    if clear:
+        for model in all_models:
+            model.delete().execute()
+
+    songs_dict = load_all_song_json()
+    count = 0
+    for data in songs_dict.values():
+        try:
+            create_song(data)
+        except Exception:
+            print(f'created songs: {count}')
+            raise
+        count += 1
+    print(f'create songs done, total: {count}')
+
+
+def download_songs(songs, client):
     """
     songs:
     {
@@ -210,21 +180,13 @@ def download_songs(songs, client, db):
         save_response_to_file(resp, file_path=file_path, logger=lg)
 
 
-def load_song_json(file_path, songs_dict, songs_list):
-    with open(file_path, 'r') as f:
-        data = json.loads(f.read())
-    for song in data:
-        songs_dict[song['songId']] = song
-        songs_list.append(song)
-
-
-@cli.command(help='export fav songs as json files')
+@cli.command(help='download songs mp3')
 @click.argument('file', default='')
 @click.option('--song-id', '-i', default='', help='song id, in all number format (e.g. 1769839259)')
 @click.option('--force', '-f', default='', help='force re-download even if song was downloaded (according to db)')
 def download_music(file, song_id, force):
     cfg.load()
-    db = get_db()
+    connect_db()
 
     if song_id:
         song_ids = song_id.split(',')
@@ -236,7 +198,7 @@ def download_music(file, song_id, force):
                 'album': '',
                 'bak_id': '',
             })
-        download_songs(songs, get_client(), db)
+        download_songs(songs, get_client())
     else:
         if not file:
             click.echo('file is required if no song ids are provided')
@@ -247,7 +209,7 @@ def download_music(file, song_id, force):
         if file == 'all':
             # read all song json files
             for root, dirs, files in os.walk(cfg.json_songs_dir):
-                files.sort(key=lambda x: int(re.search('\d+', x).group()))
+                files.sort(key=lambda x: int(re.search(r'\d+', x).group()))
                 print(files)
                 for file_name in files:
                     file_path = os.path.join(cfg.json_songs_dir, file_name)
