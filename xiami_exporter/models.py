@@ -12,6 +12,7 @@ class BaseModel(peewee.Model):
 
 
 class Song(BaseModel):
+    row_number = IntegerField()
     id = IntegerField(help_text='songId', primary_key=True)
     sid = CharField(help_text='songStringId')
     name = CharField(help_text='songName')
@@ -40,14 +41,18 @@ class Song(BaseModel):
     # export meta
     download_status = IntegerField()
 
+    def __str__(self):
+        return f'{self.id}: {self.name} - {self.artist_name} - {self.album_name}'
+
 
 class DownloadStatus:
     NOT_SET = 0
     SUCCESS = 1
-    FAILED = -1
+    UNAVAILABLE = -1
+    FAILED = -9
 
 
-def create_song(data) -> Song:
+def create_song(data, row_number) -> Song:
     md = {}
     for field in Song._meta.sorted_fields:
         # print(field.name, field.help_text)
@@ -55,6 +60,7 @@ def create_song(data) -> Song:
             md[field.name] = data[field.help_text]
 
     song = Song(**md)
+    song.row_number = row_number
 
     # sub name
     sub_name = data['subName']

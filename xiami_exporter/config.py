@@ -2,10 +2,11 @@ import click
 import json
 import os
 from .io import ensure_dir
+from pathlib import Path
 
 
 class Config:
-    dir_path = 'XiamiExports'
+    dir_path = Path('XiamiExports')
     user_id = ''
     db_name = 'db.sqlite3'
 
@@ -16,31 +17,31 @@ class Config:
     # TODO use Path
     @property
     def json_songs_dir(self):
-        return os.path.join(self.dir_path, 'json', 'songs')
+        return self.dir_path.joinpath('json', 'songs')
 
     @property
     def json_albums_dir(self):
-        return os.path.join(self.dir_path, 'json', 'albums')
+        return self.dir_path.joinpath('json', 'albums')
 
     @property
     def json_playlists_dir(self):
-        return os.path.join(self.dir_path, 'json', 'playlists')
+        return self.dir_path.joinpath('json', 'playlists')
 
     @property
     def json_artists_dir(self):
-        return os.path.join(self.dir_path, 'json', 'artists')
+        return self.dir_path.joinpath('json', 'artists')
 
     @property
     def music_dir(self):
-        return os.path.join(self.dir_path, 'music')
+        return self.dir_path.joinpath('music')
 
     @property
     def covers_dir(self):
-        return os.path.join(self.dir_path, 'covers')
+        return self.dir_path.joinpath('covers')
 
     @property
     def db_path(self):
-        return os.path.join(self.dir_path, self.db_name)
+        return self.dir_path.joinpath(self.db_name)
 
     def load(self):
         with open(self.Meta.file_path, 'r') as f:
@@ -52,6 +53,9 @@ class Config:
         _dir_path = os.environ.get('XME_DIR_PATH')
         if _dir_path:
             self.dir_path = _dir_path
+
+        if isinstance(self.dir_path, str):
+            self.dir_path = Path(self.dir_path)
 
         ensure_dir(self.dir_path)
 

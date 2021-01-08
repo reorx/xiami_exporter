@@ -1,3 +1,4 @@
+from pathlib import Path
 import json
 import re
 import os
@@ -12,7 +13,7 @@ from .fetch_loader import load_fetch_module
 from .io import ensure_dir
 from .http_util import save_response_to_file
 from .config import cfg
-from .models import db, create_song, all_models
+from .models import db, create_song, all_models, Song, DownloadStatus
 
 
 lg = logging.getLogger('cli')
@@ -124,101 +125,127 @@ def create_songs_db(clear):
             model.delete().execute()
 
     songs_dict = load_all_song_json()
-    count = 0
+    row_number = 0
     for data in songs_dict.values():
+        row_number += 1
         try:
-            create_song(data)
+            create_song(data, row_number)
         except Exception:
-            print(f'created songs: {count}')
+            print(f'created songs: {row_number}')
             raise
-        count += 1
-    print(f'create songs done, total: {count}')
+    print(f'create songs done, total: {row_number}')
 
 
-def download_songs(songs, client):
-    """
-    songs:
-    {
-        id:
-        name:
-        album:
-    }
-    """
+def get_effective_playinfo(song_id, playinfos):
+    playinfo = sorted(playinfos, key=lambda x: x['fileSize'], reverse=True)[0]
+    if playinfo['fileSize'] == 0:
+        lg.debug(f'no valid file in playinfo: id={song_id}')
+        return
+    return playinfo
+
+
+def get_audioinfos(client, song_ids, try_bak_id=True):
+    urls_dict = {}
+    for item in client.get_play_info(song_ids):
+        # get effective playinfo
+        song_id = item["songId"]
+        playinfo = get_effective_playinfo(song_id, item['playInfos'])
+        if playinfo:
+            urls_dict[song_id] = playinfo['listenFile']
+
+    audioinfos = []
+    for song_id in song_ids:
+        url = urls_dict.get(song_id)
+        info = {
+            'song_id': song_id,
+            'url': url,
+        }
+        if not url:
+            if not try_bak_id:
+                continue
+            song = Song.get(Song.id == song_id)
+            if not song.bak_song_id:
+                continue
+            lg.info(f'try bak_song_id {song.bak_song_id} for {song.id}')
+            for item in client.get_play_info([song.bak_song_id]):
+                playinfo = get_effective_playinfo(item['songId'], item['playInfos'])
+                if playinfo:
+                    info['url'] = playinfo['listenFile']
+        audioinfos.append(info)
+
+    return audioinfos
+
+
+def download_songs(client, audioinfos, update_db=True):
     ensure_dir(cfg.music_dir)
-    song_ids = []
-    for i in songs:
-        song_id = i['id']
-        song_ids.append(song_id)
-        song_store = db.get(song_id)
-        if not song_store:
-            song_store = dict(i)
-            song_store.update({
-                'download_status': 0,
-            })
-            db.set(song_id, json.dumps(song_store))
 
-    items = client.get_play_info(song_ids)
-    for item in items:
-        song_store = json.loads(db.get(item['songId']))
-        playinfo = sorted(item['playInfos'], key=lambda x: x['fileSize'], reverse=True)[0]
-        if playinfo['fileSize'] == 0:
-            print(f'no valid file in playinfo: id={song_store["id"]}  name={song_store["name"]} album={song_store["album"]}')
-            song_store['download_status'] = -1
-            db.set(song_store['id'], json.dumps(song_store))
-            continue
+    for info in audioinfos:
+        song_id = info['song_id']
+        if update_db:
+            song = Song.get(Song.id == song_id)
+            prefix = f'{song.row_number}-'
+        else:
+            song = None
+            prefix = ''
 
-        # print(playinfo)
-        url = playinfo['listenFile']
-        resp = client.session.get(url)
-        url_parsed = urlparse(url)
-        file_name = os.path.basename(url_parsed.path)
-        if song_store['name']:
-            _, ext = os.path.splitext(file_name)
-            file_name = song_store['name'] + ext
+        url = info['url']
+        if url:
+            url_parsed = urlparse(url)
+            _file_name = os.path.basename(url_parsed.path)
+            ext = Path(_file_name).suffix
+            file_name = f'{prefix}{song.id}{ext}'
 
-        file_path = os.path.join(cfg.music_dir, file_name)
-        save_response_to_file(resp, file_path=file_path, logger=lg)
+            resp = client.session.get(url)
+
+            file_path = cfg.music_dir.joinpath(file_name)
+            try:
+                save_response_to_file(resp, file_path=file_path, logger=lg)
+            except Exception as e:
+                download_status = DownloadStatus.FAILED
+                lg.error(f'failed to download {file_name}: {e}')
+            else:
+                download_status = DownloadStatus.SUCCESS
+        else:
+            download_status = DownloadStatus.UNAVAILABLE
+
+        lg.info(f'download status of {file_name}: {download_status}')
+        if song:
+            song.download_status = download_status
+            song.save()
 
 
 @cli.command(help='download songs mp3')
-@click.argument('file', default='')
-@click.option('--song-id', '-i', default='', help='song id, in all number format (e.g. 1769839259)')
-@click.option('--force', '-f', default='', help='force re-download even if song was downloaded (according to db)')
-def download_music(file, song_id, force):
+@click.option('--song-id', '-i', default='', help='only download song(s) by id, comma separated')
+@click.option('--filter-status', default=DownloadStatus.NOT_SET, help='filter Song.download_status')
+@click.option('--batch-size', default=10, help='number of songs in a batch download task')
+@click.option('--batch-count', default=0, help='number of batch download tasks')
+def download_music(song_id, filter_status, batch_size, batch_count):
     cfg.load()
-    connect_db()
+    prepare_db()
+    client = get_client()
 
     if song_id:
         song_ids = song_id.split(',')
-        songs = []
-        for i in song_ids:
-            songs.append({
-                'id': i,
-                'name': '',
-                'album': '',
-                'bak_id': '',
-            })
-        download_songs(songs, get_client())
+        audioinfos = get_audioinfos(client, song_ids, try_bak_id=False)
+        download_songs(client, audioinfos)
     else:
-        if not file:
-            click.echo('file is required if no song ids are provided')
-            sys.exit(1)
+        def yield_songs(size):
+            songs = []
+            for song in Song.select().where(Song.download_status == filter_status).order_by(Song.row_number):
+                songs.append(song)
+                if len(songs) == size:
+                    yield songs
+                    songs = []
+            if songs:
+                yield songs
 
-        songs_dict = {}
-        songs_list = []
-        if file == 'all':
-            # read all song json files
-            for root, dirs, files in os.walk(cfg.json_songs_dir):
-                files.sort(key=lambda x: int(re.search(r'\d+', x).group()))
-                print(files)
-                for file_name in files:
-                    file_path = os.path.join(cfg.json_songs_dir, file_name)
-                    load_song_json(file_path, songs_dict, songs_list)
-
-        for song in songs_list:
-            # if song['musicType'] == 0:
-            if song['bakSongId'] != 0:
-                print(f'{song["songId"]}: {song["songName"]} - {song["albumName"]} - {song["artistName"]}')
+        _batch_count = 0
+        for songs in yield_songs(batch_size):
+            _batch_count += 1
+            if _batch_count > batch_count:
+                break
+            audioinfos = get_audioinfos(client, [i.id for i in songs])
+            download_songs(client, audioinfos)
 
 
 if __name__ == '__main__':
