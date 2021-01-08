@@ -11,7 +11,7 @@ lg = logging.getLogger('xiami.client')
 class HTTPClient:
     base_uri = None
 
-    def __init__(self, session, base_uri=None, headers=None):
+    def __init__(self, session: requests.Session, base_uri=None, headers=None):
         if base_uri:
             self.base_uri = base_uri
         self.headers = headers or {}
@@ -56,7 +56,7 @@ class XiamiClient(HTTPClient):
     # API methods
 
     def set_user_id(self, user_id):
-        self.user_id  = user_id
+        self.user_id = user_id
 
     def make_page_q(self, page, page_size):
         q = {

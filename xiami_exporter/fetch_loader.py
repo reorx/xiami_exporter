@@ -1,3 +1,4 @@
+from typing import Tuple
 import json
 import requests
 from requests.cookies import cookiejar_from_dict
@@ -12,10 +13,12 @@ __all__ = ['null', 'fetch']
 null = None
 
 session = None
+headers = None
 
 
 def fetch(url, args):
     global session
+    global headers
 
     url_parsed = urlparse(url)
     params = parse_qs(url_parsed.query)
@@ -34,7 +37,9 @@ def fetch(url, args):
     # print(f'actual token: {param_s}')
 
     headers = args['headers']
-    cookies = cookie_str_to_dict(headers['cookie'])
+    if 'referrer' in args:
+        headers['referer'] = args['referrer']
+    cookies = cookie_str_to_dict(headers.pop('cookie'))
     # print(cookies)
 
     s = requests.Session()
@@ -72,8 +77,8 @@ def fetch(url, args):
     # print(dict_from_cookiejar(s.cookies))
 
 
-def load_fetch_module(file_path):
+def load_fetch_module(file_path) -> Tuple[requests.Session, dict]:
     with open(file_path, 'r') as f:
         exec(f.read())
 
-    return session
+    return session, headers

@@ -22,6 +22,9 @@ logging.basicConfig(level=logging.INFO)
 # logging.basicConfig(level=logging.DEBUG)
 
 
+DEFAULT_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36'
+
+
 def check_fetch():
     file_path = 'fetch.py'
     if not os.path.exists(file_path):
@@ -33,8 +36,10 @@ def check_fetch():
 
 
 def get_client():
-    session = check_fetch()
-    client = XiamiClient(session)
+    session, headers = check_fetch()
+    # change headers
+    headers['User-Agent'] = DEFAULT_UA
+    client = XiamiClient(session, headers=headers)
     client.set_user_id(cfg.user_id)
     return client
 
