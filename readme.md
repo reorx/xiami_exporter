@@ -27,33 +27,6 @@
 6. 运行 `python -m xiami_exporter.cli check`, 显示成功表示可以使用导出功能，否则请重试上一步，或联系开发者
 7. 根据想要导出的数据，运行相应指令，如 `python -m xiami_exporter.cli export-songs` 即导出收藏歌曲为 json
 
-## Hierarchy
-
-Xiami Exporter 保存的数据有如下几类：
-- json 数据文件: 歌曲、专辑、播放列表
-- MP3 音频文件: 歌曲、专辑、播放列表
-- jpg/png 图片文件: 专辑封面
-- sqlite3 数据库文件: 歌曲、专辑、播放列表
-
-默认在项目路径下创建 `XiamiExports` 目录，其文件系统结构大体如下:
-
-```
-XiamiExports/
-  db.sqlite3
-  json/
-    songs/
-      song-1.json
-      song-2.json
-      ...
-    albums/
-    playlists/
-    artists/
-  music/
-    NUM-SONG_ID.mp3
-  covers/
-    ALBUM_ID.jpg
-```
-
 ## Usage
 
 运行方式为 `python -m xiami_exporter.cli COMMAND`, 可通过 `python -m xiami_exporter.cli --help` 查看指令列表。
@@ -89,6 +62,33 @@ Success, you can now use the export commands
 中断后可重新运行，只会从数据库中筛选 download_status = NOT_SET 的歌曲进行下载。
 
 > 注: 此指令后续会支持下载 album 和 playlist
+
+## Hierarchy
+
+Xiami Exporter 保存的数据有如下几类：
+- json 数据文件: 歌曲、专辑、播放列表
+- MP3 音频文件: 歌曲、专辑、播放列表
+- jpg/png 图片文件: 专辑封面
+- sqlite3 数据库文件: 歌曲、专辑、播放列表
+
+默认在项目路径下创建 `XiamiExports` 目录，其文件系统结构大体如下:
+
+```
+XiamiExports/
+  db.sqlite3
+  json/
+    songs/
+      song-1.json
+      song-2.json
+      ...
+    albums/
+    playlists/
+    artists/
+  music/
+    NUM-SONG_ID.mp3
+  covers/
+    ALBUM_ID.jpg
+```
 
 ## Development
 
