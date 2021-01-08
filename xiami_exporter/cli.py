@@ -247,7 +247,7 @@ def download_music(song_id, filter_status, batch_size, batch_count):
         _batch_count = 0
         for songs in yield_songs(batch_size):
             _batch_count += 1
-            if _batch_count > batch_count:
+            if batch_count > 0 and _batch_count > batch_count:
                 break
             audioinfos = get_audioinfos(client, [i.id for i in songs])
             download_songs(client, audioinfos)
