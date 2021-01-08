@@ -6,11 +6,11 @@ import time
 import logging
 import click
 from urllib.parse import urlparse
-from xiami_exporter.client import XiamiClient
-from xiami_exporter.fetch_loader import load_fetch_module
-from xiami_exporter.io import ensure_dir
-from xiami_exporter.litekv import LiteKV
-from xiami_exporter.http_util import save_response_to_file
+from .client import XiamiClient
+from .fetch_loader import load_fetch_module
+from .io import ensure_dir
+from .litekv import LiteKV
+from .http_util import save_response_to_file
 
 
 lg = logging.getLogger('cli')
