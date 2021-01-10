@@ -45,9 +45,10 @@ def get_client():
 
 
 def prepare_db():
-    db.init(str(cfg.db_path.resolve()))
+    from .migrations import migrate
 
-    db.create_tables(all_models)
+    db.init(str(cfg.db_path.resolve()))
+    migrate()
 
 
 @click.group()
@@ -126,8 +127,7 @@ def create_songs_db(clear):
     cfg.load()
     prepare_db()
     if clear:
-        for model in all_models:
-            model.delete().execute()
+        Song.delete().execute()
 
     songs_dict = load_all_song_json()
     row_number = 0
@@ -252,6 +252,12 @@ def download_music(song_id, filter_status, batch_size, batch_count):
                 break
             audioinfos = get_audioinfos(client, [i.id for i in songs])
             download_songs(client, audioinfos)
+
+
+@cli.command(help='')
+@click.option('--reset', '-r', is_flag=True)
+def migrate(reset):
+    prepare_db()
 
 
 if __name__ == '__main__':

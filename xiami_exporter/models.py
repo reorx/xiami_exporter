@@ -1,5 +1,6 @@
 import peewee
-from peewee import CharField, IntegerField
+from peewee import CharField, IntegerField, BooleanField, DateTimeField
+import peeweedbevolve  # NOQA
 
 
 # http://docs.peewee-orm.com/en/latest/peewee/database.html#run-time-database-configuration
@@ -40,6 +41,9 @@ class Song(BaseModel):
 
     # export meta
     download_status = IntegerField()
+    in_songs = BooleanField(default=False)
+    in_albums = BooleanField(default=False)
+    in_playlists = BooleanField(default=False)
 
     def __str__(self):
         return f'{self.id}: {self.name} - {self.artist_name} - {self.album_name}'
@@ -79,6 +83,7 @@ def create_song(data, row_number) -> Song:
     song.sub_name = sub_name
 
     song.download_status = DownloadStatus.NOT_SET
+    song.in_songs = True
     try:
         song.save(force_insert=True)
     except peewee.IntegrityError:
@@ -86,4 +91,10 @@ def create_song(data, row_number) -> Song:
     return song
 
 
-all_models = [Song]
+# Migration model must not be changed ever after created
+class Migration(BaseModel):
+    schema_version = IntegerField()
+    applied_at = DateTimeField()
+
+
+all_models = [Song, Migration]
