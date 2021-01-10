@@ -45,7 +45,7 @@ def get_client():
 
 
 def prepare_db():
-    db.init(cfg.db_path)
+    db.init(str(cfg.db_path.resolve()))
 
     db.create_tables(all_models)
 
