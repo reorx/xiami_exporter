@@ -90,4 +90,4 @@ class CustomJSONEncoder(JSONEncoder):
         if isinstance(o, Path):
             return str(o)
         else:
-            return super(ModelJSONEncoder, self).default(o)
+            return super().default(o)
