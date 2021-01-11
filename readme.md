@@ -103,7 +103,7 @@ other TODO
 ### tag problems
 
 - arrangement -> TIPL, tried to save but cannot be displayed
-- comment -> COMM, easyid3 writes as:
+- [solved] comment -> COMM, easyid3 writes as:
   ```
   COMM==XXX=artist_alias: あーりーれい
   ```
@@ -117,6 +117,14 @@ other TODO
   COMM=ID3v1 Comment=eng=first line
   second line
   ```
+
+  solution:
+
+  follows how itunes mp3 writes comment:
+  ```
+  COMM==eng=artist_alias: あーりーれい
+  ```
+
 - performers should be TMCL, but is written as TXXX:
   ```
   TXXX=PERFORMER=陽花

@@ -2,14 +2,15 @@ import logging
 from pathlib import Path
 from mutagen.easyid3 import EasyID3
 from mutagen.easymp4 import EasyMP4
-from mutagen.id3 import ID3
+from mutagen.id3 import ID3, COMM
 from mutagen.mp4 import MP4
 from mutagen.id3._util import ID3NoHeaderError
 from .models import Song
 
 
+lg = logging.getLogger()
+
 extra_id3_tags = [
-    ('comment', 'COMM'),
     ('involvedpeople', 'TIPL'),
 ]
 
@@ -18,7 +19,32 @@ for k, v in extra_id3_tags:
     EasyID3.RegisterTextKey(k, v)
 
 
-lg = logging.getLogger()
+def comment_get(id3, key):
+    return id3["COMM"]._pprint()
+
+
+def comment_set(id3, key, value):
+    # itunes can only identify:
+    # COMM==eng=lorem ipsum
+    try:
+        frame = id3["COMM"]
+    except KeyError:
+        id3.add(COMM(
+            encoding=3,
+            lang='eng',
+            text=value,
+        ))
+    else:
+        frame.encoding = 3
+        frame.lang = 'CHI'
+        frame.text = value
+
+
+def comment_delete(id3, key):
+    del(id3["COMM"])
+
+
+EasyID3.RegisterKey("comment", comment_get, comment_set, comment_delete)
 
 
 def load_mp3(file_name, easy=True):
