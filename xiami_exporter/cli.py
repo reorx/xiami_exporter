@@ -13,7 +13,8 @@ from .fetch_loader import load_fetch_module
 from .io import ensure_dir
 from .http_util import save_response_to_file
 from .config import cfg
-from .models import db, create_song, all_models, Song, DownloadStatus
+from .models import db, create_song, Song, DownloadStatus, DoesNotExist
+from .id3 import Tagger
 
 
 lg = logging.getLogger('cli')
@@ -252,6 +253,39 @@ def download_music(song_id, filter_status, batch_size, batch_count):
                 break
             audioinfos = get_audioinfos(client, [i.id for i in songs])
             download_songs(client, audioinfos)
+
+
+def download_covers():
+    pass
+
+
+REGEX_MUSIC_FILE = re.compile(r'^\d+-(\d+)\.')
+
+
+@cli.command(help='tag music ID3 from database')
+@click.option('--cover', '-c', is_flag=True, help='tag with album cover image')
+def tag_music(cover):
+    cfg.load()
+    prepare_db()
+
+    for _, _, files in os.walk(cfg.music_dir):
+        files.sort(key=lambda x: int(re.search(r'^\d+', x).group()))
+
+        for _file_name in files:
+            # print(_file_name)
+            rv = REGEX_MUSIC_FILE.search(_file_name)
+            if not rv:
+                lg.info(f'file {_file_name}: skip for name not match ROW_NUMBER-SONG_ID.mp3 file pattern')
+                continue
+            song_id = rv.groups()[0]
+            try:
+                song = Song.get(Song.id == song_id)
+            except DoesNotExist:
+                lg.warn(f'file {_file_name}: song does not exist')
+                continue
+            file_name = Path(_file_name)
+            tagger = Tagger(file_name, cfg.music_dir.joinpath(file_name))
+            tagger.tag_by_model(song, clear_old=True)
 
 
 @cli.command(help='')

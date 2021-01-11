@@ -1,5 +1,5 @@
 import peewee
-from peewee import CharField, IntegerField, BooleanField, DateTimeField
+from peewee import CharField, IntegerField, BooleanField, DateTimeField, DoesNotExist
 import peeweedbevolve  # NOQA
 
 
@@ -32,10 +32,11 @@ class Song(BaseModel):
     artist_name = CharField(help_text='artistName')
     artist_alias = CharField(help_text='artistAlias')
 
+    # singers are artists splited by '/'
     singers = CharField(help_text='singers')
     songwriters = CharField(help_text='songwriters')
     composer = CharField(help_text='composer')
-    arrangement = CharField(help_text='arrangement')
+    arrangement = CharField(help_text='arrangement')  # 编曲
 
     bak_song_id = IntegerField(help_text='bakSongId')
 

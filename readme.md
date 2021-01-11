@@ -5,6 +5,7 @@
 - [ ] 导出收藏艺人为 json
 - [ ] 导出收藏专辑为 json
 - [ ] 导出播放列表为 json (个人和收藏)
+- [x] 将导出的数据整理至 sqlite 数据库
 - [x] 下载已导出歌曲的 MP3 文件
 - [ ] 根据导出信息为 MP3 添加完整的 ID3 tag
 - [ ] 下载已导出的歌曲、专辑、艺人的封面图片
@@ -66,10 +67,10 @@ Success, you can now use the export commands
 ## Hierarchy
 
 Xiami Exporter 保存的数据有如下几类：
-- json 数据文件: 歌曲、专辑、播放列表
+- json 数据文件: 歌曲、专辑、艺人、播放列表
 - MP3 音频文件: 歌曲、专辑、播放列表
 - jpg/png 图片文件: 专辑封面
-- sqlite3 数据库文件: 歌曲、专辑、播放列表
+- sqlite3 数据库文件: 歌曲、专辑、艺人、播放列表
 
 默认在项目路径下创建 `XiamiExports` 目录，其文件系统结构大体如下:
 
