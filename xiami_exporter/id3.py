@@ -3,12 +3,14 @@ from pathlib import Path
 from mutagen.easyid3 import EasyID3
 from mutagen.easymp4 import EasyMP4
 from mutagen.id3 import ID3
+from mutagen.mp4 import MP4
 from mutagen.id3._util import ID3NoHeaderError
 from .models import Song
 
 
 extra_id3_tags = [
-    ('comments', 'COMM')
+    ('comment', 'COMM'),
+    ('involvedpeople', 'TIPL'),
 ]
 
 
@@ -19,9 +21,12 @@ for k, v in extra_id3_tags:
 lg = logging.getLogger()
 
 
-def load_mp3(file_name):
+def load_mp3(file_name, easy=True):
     try:
-        return EasyID3(file_name)
+        if easy:
+            return EasyID3(file_name)
+        else:
+            return ID3(file_name)
     except ID3NoHeaderError:
         # Fix mp3 file no tag loading error, m4a has no this problem
         id3 = ID3()
@@ -29,8 +34,11 @@ def load_mp3(file_name):
         return EasyID3(file_name)
 
 
-def load_m4a(file_name):
-    return EasyMP4(file_name)
+def load_m4a(file_name, easy=True):
+    if easy:
+        return EasyMP4(file_name)
+    else:
+        return MP4(file_name)
 
 
 SUPPORT_EXTS = {
@@ -52,12 +60,13 @@ DEFAULT_KEY_MAP = {
     'artist_name': ['artist', 'albumartist'],  # TPE1, TPE2
     'songwriters': 'lyricist',  # TEXT
     'composer': 'composer',  # TCOM
+    'arrangement': 'involvedpeople',  # TIPL
 }
 
 
 class Tagger:
-    def __init__(self, file_name: Path, file_path: Path):
-        self.file_name = file_name
+    def __init__(self, file_name, file_path):
+        self.file_name = Path(file_name)
         self.file_path = file_path
         self.mutagen_factory = SUPPORT_EXTS[self.file_name.suffix]
         self.mutagen_obj = self.mutagen_factory(file_path)
@@ -91,4 +100,24 @@ class Tagger:
             for id3_key in id3_keys:
                 self.mutagen_obj[id3_key] = str(v)
 
+        # other attrs: album_sub_name, artist_alias, singers
+
+        # singers: performer -> TMCL
+        singers = list(filter(None, (i.strip() for i in song.singers.split('/'))))
+        if singers:
+            self.mutagen_obj['performer'] = singers
+
+        # album_sub_name, artist_alias: comments -> COMM
+        comment_l = []
+        for k in ['album_sub_name', 'artist_alias']:
+            v = getattr(song, k, None)
+            if v:
+                comment_l.append(f'{k}: {v}')
+        if comment_l:
+            self.mutagen_obj['comment'] = '; '.join(comment_l)
+
         self.mutagen_obj.save()
+
+    def show_tags(self):
+        obj = self.mutagen_factory(self.file_path, easy=False)
+        print(obj.pprint())

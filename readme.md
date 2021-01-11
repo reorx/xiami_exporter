@@ -100,4 +100,26 @@ XiamiExports/
 other TODO
 - [ ] remove useless keys in json
 
+### tag problems
+
+- arrangement -> TIPL, tried to save but cannot be displayed
+- comment -> COMM, easyid3 writes as:
+  ```
+  COMM==XXX=artist_alias: あーりーれい
+  ```
+
+  which is not recognized by Meta.app.
+
+  Meta.app writes as:
+  ```
+  COMM==ENG=first line
+  second line
+  COMM=ID3v1 Comment=eng=first line
+  second line
+  ```
+- performers should be TMCL, but is written as TXXX:
+  ```
+  TXXX=PERFORMER=陽花
+  ```
+
 </details>

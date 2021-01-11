@@ -101,14 +101,16 @@ def export_songs(page):
         time.sleep(1)
 
 
-def load_song_json(file_path, songs_dict: OrderedDict):
+def load_song_json(file_path, songs_dict: OrderedDict, str_id_dict=None):
     with open(file_path, 'r') as f:
         data = json.loads(f.read())
     for song in data:
         songs_dict[song['songId']] = song
+        if str_id_dict is not None:
+            str_id_dict[song['songStringId']] = song
 
 
-def load_all_song_json():
+def load_all_song_json(str_id_dict=None):
     songs_dict = OrderedDict()
 
     # read all song json files
@@ -118,7 +120,7 @@ def load_all_song_json():
 
         for file_name in files:
             file_path = os.path.join(cfg.json_songs_dir, file_name)
-            load_song_json(file_path, songs_dict)
+            load_song_json(file_path, songs_dict, str_id_dict)
     return songs_dict
 
 
@@ -264,33 +266,73 @@ REGEX_MUSIC_FILE = re.compile(r'^\d+-(\d+)\.')
 
 @cli.command(help='tag music ID3 from database')
 @click.option('--cover', '-c', is_flag=True, help='tag with album cover image')
-def tag_music(cover):
+@click.option('--show-tags', '-t', default='', help='show tags from a file, for debug purpose')
+def tag_music(cover, show_tags):
     cfg.load()
     prepare_db()
 
-    for _, _, files in os.walk(cfg.music_dir):
-        files.sort(key=lambda x: int(re.search(r'^\d+', x).group()))
+    if show_tags:
+        tagger = Tagger(show_tags, show_tags)
+        tagger.show_tags()
+        return
 
-        for _file_name in files:
+    for _, _, files in os.walk(cfg.music_dir):
+        for file_name in files:
             # print(_file_name)
-            rv = REGEX_MUSIC_FILE.search(_file_name)
+            rv = REGEX_MUSIC_FILE.search(file_name)
             if not rv:
-                lg.info(f'file {_file_name}: skip for name not match ROW_NUMBER-SONG_ID.mp3 file pattern')
+                lg.info(f'file {file_name}: skip for name not match ROW_NUMBER-SONG_ID.mp3 file pattern')
                 continue
             song_id = rv.groups()[0]
             try:
                 song = Song.get(Song.id == song_id)
             except DoesNotExist:
-                lg.warn(f'file {_file_name}: song does not exist')
+                lg.warn(f'file {file_name}: song does not exist')
                 continue
-            file_name = Path(_file_name)
             tagger = Tagger(file_name, cfg.music_dir.joinpath(file_name))
             tagger.tag_by_model(song, clear_old=True)
 
 
 @cli.command(help='')
+@click.argument('song_id', default='')
+@click.option('--str-id', '-I', default='', help='')
+@click.option('--echo-path', '-p', is_flag=True)
+@click.option('--echo-database', '-d', is_flag=True)
+def show_song(song_id, str_id, echo_path, echo_database):
+    cfg.load()
+    if song_id:
+        songs_dict = load_all_song_json()
+        data = songs_dict[song_id]
+    elif str_id:
+        str_id_dict = {}
+        load_all_song_json(str_id_dict)
+        data = str_id_dict[str_id]
+    else:
+        click.echo('one of song_id or str_id must be provided')
+        sys.exit(1)
+
+    song_id = data['songId']
+    if echo_path:
+        for _, _, files in os.walk(cfg.music_dir):
+            for file_name in files:
+                rv = REGEX_MUSIC_FILE.search(file_name)
+                if rv:
+                    _song_id = rv.groups()[0]
+                    if _song_id == str(song_id):
+                        print(cfg.music_dir.joinpath(file_name))
+    elif echo_database:
+        prepare_db()
+        song = Song.get(Song.id == song_id)
+        import pprint
+        pprint.pprint(song.__data__)
+    else:
+        print(json.dumps(data, indent=1, ensure_ascii=False))
+
+
+@cli.command(help='')
 @click.option('--reset', '-r', is_flag=True)
 def migrate(reset):
+    cfg.load()
     prepare_db()
 
 

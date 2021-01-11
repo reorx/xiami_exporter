@@ -78,7 +78,8 @@ def create_song(data, row_number) -> Song:
     sub_name = data['subName']
     new_sub_name = data['newSubName']
     if sub_name and new_sub_name:
-        sub_name = f'{sub_name} ({new_sub_name}'
+        if sub_name != new_sub_name:
+            sub_name = f'{new_sub_name} ({sub_name})'
     else:
         sub_name = sub_name + new_sub_name
     song.sub_name = sub_name
