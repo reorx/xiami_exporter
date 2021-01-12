@@ -77,7 +77,7 @@ def check():
 
 @cli.command(help='export fav songs as json files')
 @click.option('--page', '-p', default='', help='page number, if omitted, all pages will be exported')
-@click.option('--page-size', '-s', default=30, help='page size, default is 30, max is 100')
+@click.option('--page-size', '-s', default=100, help='page size, default is 100, max is 100')
 def export_songs(page, page_size):
     cfg.load()
     client = get_client()
