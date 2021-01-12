@@ -19,8 +19,7 @@ from .id3 import Tagger
 
 lg = logging.getLogger('cli')
 
-is_debug = os.environ.get('XME_DEBUG')
-logging.basicConfig(level=logging.DEBUG if is_debug else logging.INFO)
+logging.basicConfig(level=logging.INFO)
 
 
 DEFAULT_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36'
@@ -53,8 +52,10 @@ def prepare_db():
 
 
 @click.group()
-def cli():
-    pass
+@click.option('-d', '--debug', is_flag=True)
+def cli(debug):
+    if debug:
+        lg.setLevel(logging.DEBUG)
 
 
 @cli.command()
@@ -76,7 +77,8 @@ def check():
 
 @cli.command(help='export fav songs as json files')
 @click.option('--page', '-p', default='', help='page number, if omitted, all pages will be exported')
-def export_songs(page):
+@click.option('--page-size', '-s', default=30, help='page size, default is 30, max is 100')
+def export_songs(page, page_size):
     cfg.load()
     client = get_client()
 
@@ -88,9 +90,10 @@ def export_songs(page):
 
     ensure_dir(cfg.json_songs_dir)
     while True:
-        songs = client.get_fav_songs(page)
+        songs = client.get_fav_songs(page, page_size)
         if not songs:
             break
+        lg.debug(f'get_fav_songs length {len(songs)}')
         file_path = os.path.join(cfg.json_songs_dir, f'songs-{page}.json')
         with open(file_path, 'w') as f:
             json.dump(songs, f)
