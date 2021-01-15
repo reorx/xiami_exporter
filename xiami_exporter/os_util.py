@@ -2,7 +2,7 @@ import os
 import logging
 
 
-lg = logging.getLogger('xiami.io')
+lg = logging.getLogger('xiami.os_util')
 
 
 def ensure_dir(path):

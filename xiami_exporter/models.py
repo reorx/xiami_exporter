@@ -27,6 +27,7 @@ class Song(BaseModel):
     album_lang = CharField(help_text='albumLanguage')
     album_song_count = IntegerField(help_text='albumSongCount')
     track = IntegerField(help_text='track')
+    disc = IntegerField(help_text='cdSerial')
 
     artist_id = IntegerField(help_text='artistId')
     artist_name = CharField(help_text='artistName')

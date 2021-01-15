@@ -3,7 +3,7 @@ import json
 import os
 from pathlib import Path
 from json import JSONEncoder
-from .io import ensure_dir
+from .os_util import ensure_dir
 
 
 class Config:

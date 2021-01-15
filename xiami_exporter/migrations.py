@@ -4,16 +4,17 @@ import logging
 import datetime
 import sys
 from .models import db, all_models, Migration
+from .store import FileStore
 
 
-schema_version = 2
+schema_version = 3
 
 lg = logging.getLogger('xiami.db')
 
 migrator = pw_migrate.SqliteMigrator(db)
 
 
-def migrate():
+def migrate(fs: FileStore):
     if db.table_exists('song'):
         # table 'song' exists means schema_version >= 2
         if db.table_exists('migration'):
@@ -34,13 +35,12 @@ def migrate():
             return
 
         for ver in range(latest_version + 1, schema_version + 1):
-            print(ver)
             migration_name = f'migration_00{ver}'
             migration_func = globals().get(migration_name)
             if migration_func:
                 print(f'\nRunning migration {migration_name}')
                 with db.atomic():
-                    migration_func()
+                    migration_func(fs)
                     Migration.create(schema_version=ver, applied_at=datetime.datetime.now())
     else:
         # first time running
@@ -54,7 +54,7 @@ class BaseModel(pw.Model):
         database = db
 
 
-def migration_002():
+def migration_002(fs: FileStore):
     """
     - add migration table
     - update song table
@@ -70,3 +70,19 @@ def migration_002():
         migrator.add_column('song', 'in_albums', in_albums),
         migrator.add_column('song', 'in_playlists', in_playlists),
     )
+
+
+def migration_003(fs: FileStore):
+    """
+    - song: add disc field
+    """
+    pw_migrate.migrate(
+        migrator.add_column('song', 'disc', pw.IntegerField(default=1)),
+    )
+
+    class Song(BaseModel):
+        id = pw.IntegerField(help_text='songId', primary_key=True)
+        disc = pw.IntegerField(help_text='cdSerial')
+
+    for song in fs.load_all_song_json().values():
+        Song.update(disc=song['cdSerial']).where(Song.id == song['songId']).execute()

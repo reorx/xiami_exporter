@@ -6,12 +6,12 @@ import sys
 import time
 import logging
 import click
-from collections import OrderedDict
 from urllib.parse import urlparse
 from .client import XiamiClient, trim_song
 from .fetch_loader import load_fetch_module
-from .io import ensure_dir
+from .store import FileStore
 from .http_util import save_response_to_file
+from .os_util import ensure_dir
 from .config import cfg
 from .models import db, create_song, Song, DownloadStatus, DoesNotExist
 from .id3 import Tagger
@@ -48,7 +48,7 @@ def prepare_db():
     from .migrations import migrate
 
     db.init(str(cfg.db_path.resolve()))
-    migrate()
+    migrate(FileStore(cfg))
 
 
 @click.group()
@@ -106,29 +106,6 @@ def export_songs(page, page_size):
         time.sleep(1)
 
 
-def load_song_json(file_path, songs_dict: OrderedDict, str_id_dict=None):
-    with open(file_path, 'r') as f:
-        data = json.loads(f.read())
-    for song in data:
-        songs_dict[song['songId']] = song
-        if str_id_dict is not None:
-            str_id_dict[song['songStringId']] = song
-
-
-def load_all_song_json(str_id_dict=None):
-    songs_dict = OrderedDict()
-
-    # read all song json files
-    for root, dirs, files in os.walk(cfg.json_songs_dir):
-        files.sort(key=lambda x: int(re.search(r'\d+', x).group()))
-        lg.debug(f'sorted files: {files}')
-
-        for file_name in files:
-            file_path = os.path.join(cfg.json_songs_dir, file_name)
-            load_song_json(file_path, songs_dict, str_id_dict)
-    return songs_dict
-
-
 @cli.command(help='create songs in database')
 @click.option('--clear', '-c', is_flag=True, help='clear db before inserting')
 def create_songs_db(clear):
@@ -137,7 +114,7 @@ def create_songs_db(clear):
     if clear:
         Song.delete().execute()
 
-    songs_dict = load_all_song_json()
+    songs_dict = FileStore(cfg).load_all_song_json()
     row_number = 0
     for data in songs_dict.values():
         row_number += 1
@@ -262,7 +239,9 @@ def download_music(song_id, filter_status, batch_size, batch_count):
             download_songs(client, audioinfos)
 
 
-def download_covers():
+@cli.command(help='download album covers')
+@click.option('--song-id', '-i', default='', help='only download cover by song id')
+def download_covers(song_id):
     pass
 
 
@@ -298,19 +277,20 @@ def tag_music(cover, show_tags):
             tagger.tag_by_model(song, clear_old=True)
 
 
-@cli.command(help='')
+@cli.command(help='show song information from json/database')
 @click.argument('song_id', default='')
 @click.option('--str-id', '-I', default='', help='')
 @click.option('--echo-path', '-p', is_flag=True)
 @click.option('--echo-database', '-d', is_flag=True)
 def show_song(song_id, str_id, echo_path, echo_database):
     cfg.load()
+    fs = FileStore(cfg)
     if song_id:
-        songs_dict = load_all_song_json()
+        songs_dict = fs.load_all_song_json()
         data = songs_dict[song_id]
     elif str_id:
         str_id_dict = {}
-        load_all_song_json(str_id_dict)
+        fs.load_all_song_json(str_id_dict)
         data = str_id_dict[str_id]
     else:
         click.echo('one of song_id or str_id must be provided')
