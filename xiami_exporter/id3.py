@@ -81,6 +81,7 @@ DEFAULT_KEY_MAP = {
     'album_name': 'album',  # TALB
     'album_lang': 'language',  # TLAN
     'track': 'tracknumber',  # TRCK
+    'disc': 'discnumber',  # TPOS
     # TPE2 by definition is "The 'Band/Orchestra/Accompaniment' frame, used for additional information about the performers in the recording"
     # but is repurposed for 'album artist' in various softwares https://stackoverflow.com/a/5958664/596206
     'artist_name': ['artist', 'albumartist'],  # TPE1, TPE2
