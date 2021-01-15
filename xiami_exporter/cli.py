@@ -15,6 +15,7 @@ from .http_util import save_response_to_file
 from .config import cfg
 from .models import db, create_song, Song, DownloadStatus, DoesNotExist
 from .id3 import Tagger
+from . import consts
 
 
 lg = logging.getLogger('cli')
@@ -330,6 +331,25 @@ def show_song(song_id, str_id, echo_path, echo_database):
         pprint.pprint(song.__data__)
     else:
         print(json.dumps(data, indent=1, ensure_ascii=False))
+
+
+@cli.command(help='trim useless data in json files, this operation is idempotent')
+def trim_json():
+    cfg.load()
+    # song
+    for _, _, files in os.walk(cfg.json_songs_dir):
+        for file_name in files:
+            file_path = cfg.json_songs_dir.joinpath(file_name)
+            with open(file_path, 'r') as f:
+                data = json.loads(f.read())
+            for song in data:
+                # delete keys
+                for k in consts.song_useless_keys:
+                    if k in song:
+                        del song[k]
+            with open(file_path, 'w') as f:
+                lg.info(f'update file {file_path}')
+                f.write(json.dumps(data, ensure_ascii=False))
 
 
 @cli.command(help='')

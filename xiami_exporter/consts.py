@@ -1,0 +1,21 @@
+song_useless_keys = [
+    'favFlag',
+    'thirdpartyUrl',
+    'boughtCount',
+    'gmtCreate',
+    'playCount',
+    'shareCount',
+    'favCount',
+    'offline',
+    'offlineType',
+    'downloadCount',
+    'originOffline',
+    'canReward',
+    'isFavor',
+    'purviewRoleVOs',
+    'artistVOs',  # duplicated with 'singerVOs'
+    'tags',
+    'thirdSongs',
+    'freeAudioInfo',
+    'whaleSongVO',
+]
