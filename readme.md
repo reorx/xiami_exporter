@@ -66,6 +66,25 @@ Success, you can now use the export commands
 
 > 注: 此指令后续会支持下载 album 和 playlist
 
+### COMMAND: `download-covers`
+
+下载所有歌曲的专辑封面 (album cover)，支持如下选项：
+- `-f, --force`: 强制重新下载即使文件存在
+- `-l, --artist-logos`: 下载艺人图片而非专辑封面
+
+### COMMAND: `tag-music`
+
+为所有已下载的歌曲添加 ID3 tags。
+
+若专辑封面文件存在，则会将其添加到 tags 中，因此建议先运行 `download-covers`。
+
+### COMMAND: `trim-json`
+
+对已导出的 json 文件进行修剪，去掉不必要的数据。
+
+此命令用于维护已导出的 json 数据，若使用最新版重新导出，
+则导出时已对各类数据进行自动修剪，无需之后运行此命令。
+
 ## Hierarchy
 
 Xiami Exporter 保存的数据有如下几类：
@@ -91,6 +110,8 @@ XiamiExports/
     NUM-SONG_ID.mp3
   covers/
     ALBUM_ID.jpg
+  artist_logos/
+    ARTIST_ID.jpg
 ```
 
 ## Development
