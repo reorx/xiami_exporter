@@ -118,3 +118,32 @@ def create_token(session, path, q):
 
 def get_md5_hex(b: bytes):
     return hashlib.md5(b).hexdigest()
+
+
+song_useless_keys = [
+    'favFlag',
+    'thirdpartyUrl',
+    'boughtCount',
+    'gmtCreate',
+    'playCount',
+    'shareCount',
+    'favCount',
+    'offline',
+    'offlineType',
+    'downloadCount',
+    'originOffline',
+    'canReward',
+    'isFavor',
+    'purviewRoleVOs',
+    'artistVOs',  # duplicated with 'singerVOs'
+    'tags',
+    'thirdSongs',
+    'freeAudioInfo',
+    'whaleSongVO',
+]
+
+
+def trim_song(d):
+    for k in song_useless_keys:
+        if k in d:
+            del d[k]

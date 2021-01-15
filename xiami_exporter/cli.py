@@ -8,14 +8,13 @@ import logging
 import click
 from collections import OrderedDict
 from urllib.parse import urlparse
-from .client import XiamiClient
+from .client import XiamiClient, trim_song
 from .fetch_loader import load_fetch_module
 from .io import ensure_dir
 from .http_util import save_response_to_file
 from .config import cfg
 from .models import db, create_song, Song, DownloadStatus, DoesNotExist
 from .id3 import Tagger
-from . import consts
 
 
 lg = logging.getLogger('cli')
@@ -95,9 +94,11 @@ def export_songs(page, page_size):
         if not songs:
             break
         lg.debug(f'get_fav_songs length {len(songs)}')
+        for song in songs:
+            trim_song(song)
         file_path = os.path.join(cfg.json_songs_dir, f'songs-{page}.json')
         with open(file_path, 'w') as f:
-            json.dump(songs, f)
+            json.dump(songs, f, ensure_ascii=False)
 
         if get_once:
             break
@@ -343,10 +344,7 @@ def trim_json():
             with open(file_path, 'r') as f:
                 data = json.loads(f.read())
             for song in data:
-                # delete keys
-                for k in consts.song_useless_keys:
-                    if k in song:
-                        del song[k]
+                trim_song(song)
             with open(file_path, 'w') as f:
                 lg.info(f'update file {file_path}')
                 f.write(json.dumps(data, ensure_ascii=False))
