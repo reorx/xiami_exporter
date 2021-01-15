@@ -6,6 +6,7 @@ import sys
 import time
 import logging
 import click
+from collections import OrderedDict
 from urllib.parse import urlparse
 from .client import XiamiClient, trim_song
 from .fetch_loader import load_fetch_module
@@ -168,8 +169,6 @@ def get_audioinfos(client, song_ids, try_bak_id=True):
 
 
 def download_songs(client, audioinfos, update_db=True):
-    ensure_dir(cfg.music_dir)
-
     for info in audioinfos:
         song_id = info['song_id']
         if update_db:
@@ -193,7 +192,7 @@ def download_songs(client, audioinfos, update_db=True):
                 save_response_to_file(resp, file_path=file_path, logger=lg)
             except Exception as e:
                 download_status = DownloadStatus.FAILED
-                lg.error(f'failed to download {file_name}: {e}')
+                lg.error(f'failed to download {file_name}:\n  url={url}\n  error={e}')
             else:
                 download_status = DownloadStatus.SUCCESS
         else:
@@ -214,6 +213,7 @@ def download_music(song_id, filter_status, batch_size, batch_count):
     cfg.load()
     prepare_db()
     client = get_client()
+    ensure_dir(cfg.music_dir)
 
     if song_id:
         song_ids = song_id.split(',')
@@ -240,9 +240,45 @@ def download_music(song_id, filter_status, batch_size, batch_count):
 
 
 @cli.command(help='download album covers')
+@click.option('--force', '-f', is_flag=True, help='force download even if cover file already exists')
 @click.option('--song-id', '-i', default='', help='only download cover by song id')
-def download_covers(song_id):
-    pass
+def download_covers(force, song_id):
+    cfg.load()
+    prepare_db()
+    client = get_client()
+    songs_dict = FileStore(cfg).load_all_song_json()
+    ensure_dir(cfg.covers_dir)
+
+    cover_urls_dict = OrderedDict({})
+
+    for song in Song.select():
+        data = songs_dict.get(song.id)
+        if not data:
+            lg.warn(f'could not found song {song.id} in json files')
+            continue
+
+        if song.album_id not in cover_urls_dict:
+            cover_urls_dict[song.album_id] = data['albumLogo']
+
+    for album_id, url in cover_urls_dict.items():
+        _file_name = url.split('/')[-1]
+        file_name = str(album_id) + Path(_file_name).suffix
+        file_path = cfg.covers_dir.joinpath(file_name)
+
+        if file_path.exists():
+            if force:
+                print(f'Force redownload cover {file_path}')
+            else:
+                print(f'Skip cover {file_path}')
+                continue
+        else:
+            print(f'Download cover {file_name}')
+
+        resp = client.session.get(url)
+        try:
+            save_response_to_file(resp, file_path=file_path, logger=lg)
+        except Exception as e:
+            lg.error(f'failed to download {file_name}:\n  url={url}\n  error={e}')
 
 
 REGEX_MUSIC_FILE = re.compile(r'^\d+-(\d+)\.')

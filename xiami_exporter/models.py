@@ -1,5 +1,6 @@
 import peewee
-from peewee import CharField, IntegerField, BooleanField, DateTimeField, DoesNotExist
+from peewee import CharField, IntegerField, BooleanField, DateTimeField
+from peewee import DoesNotExist  # NOQA
 import peeweedbevolve  # NOQA
 
 
