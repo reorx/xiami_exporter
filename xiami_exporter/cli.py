@@ -285,14 +285,14 @@ REGEX_MUSIC_FILE = re.compile(r'^\d+-(\d+)\.')
 
 
 @cli.command(help='tag music ID3 from database')
-@click.option('--cover', '-c', is_flag=True, help='tag with album cover image')
 @click.option('--show-tags', '-t', default='', help='show tags from a file, for debug purpose')
-def tag_music(cover, show_tags):
+def tag_music(show_tags):
     cfg.load()
     prepare_db()
+    fs = FileStore(cfg)
 
     if show_tags:
-        tagger = Tagger(show_tags, show_tags)
+        tagger = Tagger(show_tags)
         tagger.show_tags()
         return
 
@@ -309,8 +309,16 @@ def tag_music(cover, show_tags):
             except DoesNotExist:
                 lg.warn(f'file {file_name}: song does not exist')
                 continue
-            tagger = Tagger(file_name, cfg.music_dir.joinpath(file_name))
+
+            tagger = Tagger(cfg.music_dir.joinpath(file_name))
             tagger.tag_by_model(song, clear_old=True)
+
+            # cover
+            cover_file_path = fs.find_cover_file(song.album_id)
+            if cover_file_path:
+                tagger.tag_cover(cover_file_path)
+
+            tagger.save()
 
 
 @cli.command(help='show song information from json/database')

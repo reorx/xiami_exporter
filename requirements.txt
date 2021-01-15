@@ -2,3 +2,4 @@ requests
 click
 peewee
 mutagen
+pillow

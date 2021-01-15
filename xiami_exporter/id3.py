@@ -1,10 +1,13 @@
+from typing import Union
 import logging
+from io import BytesIO
 from pathlib import Path
 from mutagen.easyid3 import EasyID3
 from mutagen.easymp4 import EasyMP4
-from mutagen.id3 import ID3, COMM
+from mutagen.id3 import ID3, COMM, APIC
 from mutagen.mp4 import MP4
 from mutagen.id3._util import ID3NoHeaderError
+from PIL import Image
 from .models import Song
 
 
@@ -45,6 +48,30 @@ def comment_delete(id3, key):
 
 
 EasyID3.RegisterKey("comment", comment_get, comment_set, comment_delete)
+
+
+def cover_get(id3, key):
+    return id3['APIC'].type
+
+
+def cover_set(id3, key, img: Image):
+    buf = BytesIO()
+    img.save(buf, format=img.format)
+
+    id3['APIC'] = APIC(
+        encoding=3,  # 3 is for utf-8
+        mime=Image.MIME[img.format],  # image/jpeg or image/png
+        type=3,  # 3 is for the cover image
+        desc='',
+        data=buf.getvalue(),
+    )
+
+
+def cover_delete(id3, key):
+    del(id3['APIC'])
+
+
+EasyID3.RegisterKey('cover', cover_get, cover_set, cover_delete)
 
 
 def load_mp3(file_name, easy=True):
@@ -92,11 +119,10 @@ DEFAULT_KEY_MAP = {
 
 
 class Tagger:
-    def __init__(self, file_name, file_path):
-        self.file_name = Path(file_name)
-        self.file_path = file_path
-        self.mutagen_factory = SUPPORT_EXTS[self.file_name.suffix]
-        self.mutagen_obj = self.mutagen_factory(file_path)
+    def __init__(self, file_path: Union[Path, str]):
+        self.file_path = Path(file_path)
+        self.mutagen_factory = SUPPORT_EXTS[self.file_path.suffix]
+        self.mutagen_obj = self.mutagen_factory(self.file_path)
         # lg.debug('mutagen obj: %s', self.mutagen_obj)
         self.key_map = DEFAULT_KEY_MAP
 
@@ -108,7 +134,7 @@ class Tagger:
         return None
 
     def tag_by_model(self, song: Song, clear_old=False):
-        lg.info(f'Tag song: {self.file_name}')
+        lg.info(f'Tag song: {self.file_path.name}')
 
         if clear_old:
             # Delete old
@@ -127,8 +153,6 @@ class Tagger:
             for id3_key in id3_keys:
                 self.mutagen_obj[id3_key] = str(v)
 
-        # other attrs: album_sub_name, artist_alias, singers
-
         # singers: performer -> TMCL
         singers = list(filter(None, (i.strip() for i in song.singers.split('/'))))
         if singers:
@@ -143,6 +167,16 @@ class Tagger:
         if comment_l:
             self.mutagen_obj['comment'] = '; '.join(comment_l)
 
+    def tag_cover(self, file_path: Path):
+        img = Image.open(file_path)
+        # if larger than 512KiB, resize
+        if file_path.stat().st_size > 512 * 1024:
+            lg.info(f'create thumbnail for image {file_path}')
+            img.thumbnail((500, 500))
+
+        self.mutagen_obj['cover'] = img
+
+    def save(self):
         self.mutagen_obj.save()
 
     def show_tags(self):
