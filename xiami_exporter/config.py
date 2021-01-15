@@ -41,6 +41,10 @@ class Config:
         return self.dir_path.joinpath('covers')
 
     @property
+    def artist_logos_dir(self):
+        return self.dir_path.joinpath('artist_logos')
+
+    @property
     def db_path(self):
         return self.dir_path.joinpath(self.db_name)
 

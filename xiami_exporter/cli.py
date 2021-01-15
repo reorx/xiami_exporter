@@ -241,15 +241,15 @@ def download_music(song_id, filter_status, batch_size, batch_count):
 
 @cli.command(help='download album covers')
 @click.option('--force', '-f', is_flag=True, help='force download even if cover file already exists')
-@click.option('--song-id', '-i', default='', help='only download cover by song id')
-def download_covers(force, song_id):
+@click.option('--artist-logos', '-l', is_flag=True, help='download artist logos instead')
+def download_covers(force, artist_logos):
     cfg.load()
     prepare_db()
     client = get_client()
     songs_dict = FileStore(cfg).load_all_song_json()
-    ensure_dir(cfg.covers_dir)
 
-    cover_urls_dict = OrderedDict({})
+    cover_urls_dict = OrderedDict()
+    artist_urls_dict = OrderedDict()
 
     for song in Song.select():
         data = songs_dict.get(song.id)
@@ -259,7 +259,32 @@ def download_covers(force, song_id):
 
         if song.album_id not in cover_urls_dict:
             cover_urls_dict[song.album_id] = data['albumLogo']
+            artist_urls_dict[song.artist_id] = data['artistLogo']
 
+    if artist_logos:
+        ensure_dir(cfg.artist_logos_dir)
+        for artist_id, url in artist_urls_dict.items():
+            _file_name = url.split('/')[-1]
+            file_name = str(artist_id) + Path(_file_name).suffix
+            file_path = cfg.artist_logos_dir.joinpath(file_name)
+
+            if file_path.exists():
+                if force:
+                    print(f'Force redownload artist logo {file_path}')
+                else:
+                    print(f'Skip artist logo {file_path}')
+                    continue
+            else:
+                print(f'Download artist logo {file_name}')
+
+            resp = client.session.get(url)
+            try:
+                save_response_to_file(resp, file_path=file_path, logger=lg)
+            except Exception as e:
+                lg.error(f'failed to download {file_name}:\n  url={url}\n  error={e}')
+        return
+
+    ensure_dir(cfg.covers_dir)
     for album_id, url in cover_urls_dict.items():
         _file_name = url.split('/')[-1]
         file_name = str(album_id) + Path(_file_name).suffix
