@@ -8,7 +8,7 @@ import logging
 import click
 from collections import OrderedDict
 from urllib.parse import urlparse
-from .client import XiamiClient, trim_song
+from .client import XiamiClient, trim_song, FavType
 from .fetch_loader import load_fetch_module
 from .store import FileStore
 from .http_util import save_response_to_file
@@ -57,6 +57,7 @@ def prepare_db():
 def cli(debug):
     if debug:
         lg.setLevel(logging.DEBUG)
+        # logging.getLogger().setLevel(logging.DEBUG)
 
 
 @cli.command()
@@ -76,10 +77,16 @@ def check():
     click.echo('Success, you can now use the export commands')
 
 
-@cli.command(help='export fav songs as json files')
+@cli.command(help='export fav data as json files')
+@click.argument('fav_type', nargs=1, type=click.Choice([i.name for i in FavType]))
 @click.option('--page', '-p', default='', help='page number, if omitted, all pages will be exported')
 @click.option('--page-size', '-s', default=100, help='page size, default is 100, max is 100')
-def export_songs(page, page_size):
+def export(fav_type, page, page_size):
+    fav_type = FavType[fav_type]
+    export_by_fav_type(fav_type, page, page_size)
+
+
+def export_by_fav_type(fav_type: FavType, page, page_size):
     cfg.load()
     client = get_client()
 
@@ -89,17 +96,40 @@ def export_songs(page, page_size):
         get_once = False
         page = 1
 
-    ensure_dir(cfg.json_songs_dir)
+    method_dict = {
+        FavType.SONGS: client.get_fav_songs,
+        FavType.ALBUMS: client.get_fav_albums,
+        FavType.ARTISTS: client.get_fav_artists,
+        # FavType.PLAYLISTS: client.get_fav_playlists,
+    }
+
+    dir_dict = {
+        FavType.SONGS: cfg.json_songs_dir,
+        FavType.ALBUMS: cfg.json_albums_dir,
+        FavType.ARTISTS: cfg.json_artists_dir,
+        # FavType.PLAYLISTS: cfg.json_playlists_dir,
+    }
+
+    trim_dict = {
+        FavType.SONGS: trim_song,
+    }
+
+    dir_path = dir_dict[fav_type]
+    ensure_dir(dir_path)
     while True:
-        songs = client.get_fav_songs(page, page_size)
-        if not songs:
+        client_method = method_dict[fav_type]
+        items = client_method(page, page_size)
+        if not items:
             break
-        lg.debug(f'get_fav_songs length {len(songs)}')
-        for song in songs:
-            trim_song(song)
-        file_path = os.path.join(cfg.json_songs_dir, f'songs-{page}.json')
+        lg.debug(f'{client_method.__name__} results length {len(items)}')
+
+        for item in items:
+            if fav_type in trim_dict:
+                trim_dict[fav_type](item)
+
+        file_path = dir_path.joinpath(f'{fav_type.name.lower()}-{page}.json')
         with open(file_path, 'w') as f:
-            json.dump(songs, f, ensure_ascii=False)
+            json.dump(items, f, ensure_ascii=False)
 
         if get_once:
             break

@@ -3,9 +3,21 @@ import hashlib
 import json
 import requests
 from .http_util import get_cookie_from_cookiejar
+from enum import IntEnum
 
 
 lg = logging.getLogger('xiami.client')
+
+
+class FavType(IntEnum):
+    SONGS = 1
+    ALBUMS = 2
+    ARTISTS = 3
+    # MVS = 4
+    PLAYLISTS = 5
+
+
+DEFAULT_PAGE_SIZE = 30
 
 
 class HTTPClient:
@@ -49,6 +61,7 @@ class HTTPClient:
 
 class XiamiClient(HTTPClient):
     base_uri = 'https://www.xiami.com'
+    fav_path = '/api/favorite/getFavorites'
 
     def __init__(self, session, headers=None):
         super().__init__(session, headers=headers)
@@ -58,10 +71,10 @@ class XiamiClient(HTTPClient):
     def set_user_id(self, user_id):
         self.user_id = user_id
 
-    def make_page_q(self, page, page_size):
+    def make_page_q(self, page, page_size, fav_type=FavType.SONGS):
         q = {
             "userId": self.user_id,
-            "type": 1,
+            "type": fav_type,
             "pagingVO": {
                 "page": page,
                 "pageSize": page_size,
@@ -69,20 +82,45 @@ class XiamiClient(HTTPClient):
         }
         return q
 
-    def get_fav_songs(self, page, page_size=30):
+    def get_fav_songs(self, page, page_size=DEFAULT_PAGE_SIZE):
         lg.info(f'get_fav_songs: page={page}')
-        uri = '/api/favorite/getFavorites'
-        q = self.make_page_q(page, page_size)
+        q = self.make_page_q(page, page_size, FavType.SONGS)
         params = {
             '_q': param_json_dump(q),
-            '_s': create_token(self.session, uri, q),
+            '_s': create_token(self.session, self.fav_path, q),
         }
-        r = self.get(uri, params=params)
+        r = self.get(self.fav_path, params=params)
         # print(r.status_code, r.content.decode('utf-8'))
         data = r.json()
 
         # when out of max page, songs is "null"
         return data['result']['data']['songs']
+
+    def get_fav_albums(self, page, page_size=DEFAULT_PAGE_SIZE):
+        lg.info(f'get_fav_albums: page={page}')
+        q = self.make_page_q(page, page_size, FavType.ALBUMS)
+        params = {
+            '_q': param_json_dump(q),
+            '_s': create_token(self.session, self.fav_path, q),
+        }
+        r = self.get(self.fav_path, params=params)
+        # print(r.status_code, r.content.decode('utf-8'))
+        data = r.json()
+
+        return data['result']['data']['albums']
+
+    def get_fav_artists(self, page, page_size=DEFAULT_PAGE_SIZE):
+        lg.info(f'get_fav_albums: page={page}')
+        q = self.make_page_q(page, page_size, FavType.ARTISTS)
+        params = {
+            '_q': param_json_dump(q),
+            '_s': create_token(self.session, self.fav_path, q),
+        }
+        r = self.get(self.fav_path, params=params)
+        # print(r.status_code, r.content.decode('utf-8'))
+        data = r.json()
+
+        return data['result']['data']['artists']
 
     def get_play_info(self, song_ids):
         lg.info(f'get_play_info: song_ids={song_ids}')
