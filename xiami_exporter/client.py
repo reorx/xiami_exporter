@@ -122,6 +122,19 @@ class XiamiClient(HTTPClient):
 
         return data['result']['data']['artists']
 
+    def get_fav_playlists(self, page, page_size=DEFAULT_PAGE_SIZE):
+        lg.info(f'get_fav_playlists: page={page}')
+        q = self.make_page_q(page, page_size, FavType.PLAYLISTS)
+        params = {
+            '_q': param_json_dump(q),
+            '_s': create_token(self.session, self.fav_path, q),
+        }
+        r = self.get(self.fav_path, params=params)
+        # print(r.status_code, r.content.decode('utf-8'))
+        data = r.json()
+
+        return data['result']['data']['collects']
+
     def get_play_info(self, song_ids):
         lg.info(f'get_play_info: song_ids={song_ids}')
         uri = '/api/song/getPlayInfo'

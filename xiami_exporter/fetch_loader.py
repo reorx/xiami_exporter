@@ -1,3 +1,4 @@
+import sys
 from typing import Tuple
 import json
 import requests
@@ -57,6 +58,9 @@ def fetch(url, args):
     - {"code":"SG_INVALID","msg":"请求无效"}
     """
     data = r.json()
+    if 'code' not in data:
+        print(f'fetch.py response: {r.content}')
+        sys.exit(1)
     if data['code'] == 'SUCCESS':
         session = s
         print('test fetch() ok')
