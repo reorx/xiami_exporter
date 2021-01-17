@@ -1,7 +1,6 @@
 from typing import Optional
 from pathlib import Path
 import os
-import re
 import json
 import logging
 from collections import OrderedDict

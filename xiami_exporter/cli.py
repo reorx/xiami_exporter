@@ -8,7 +8,7 @@ import logging
 import click
 from collections import OrderedDict
 from urllib.parse import urlparse
-from .client import XiamiClient, trim_song, FavType
+from .client import XiamiClient, FavType, trim_song, trim_album
 from .fetch_loader import load_fetch_module
 from .store import FileStore
 from .http_util import save_response_to_file
@@ -114,7 +114,7 @@ def export(fav_type, page, page_size, complete_songs):
                     if pl['type'] != 0:
                         # skip system created playlists
                         continue
-                    data = client.get_playlist_songs(pl)
+                    data = client.get_playlist_detail(pl)
                     for song in data['songs']:
                         trim_song(song)
                     items_with_songs.append(data)
@@ -126,7 +126,27 @@ def export(fav_type, page, page_size, complete_songs):
                 with open(file_path_with_songs, 'w') as f:
                     json.dump(items_with_songs, f, ensure_ascii=False)
         elif fav_type == FavType.ALBUMS:
-            pass
+            for file_name in dir_files_sorted(dir_path):
+                if with_songs_name_tag in file_name:
+                    continue
+                lg.info(f'scanning {file_name}')
+                with open(dir_path.joinpath(file_name), 'r') as f:
+                    items = json.loads(f.read())
+
+                items_with_songs = []
+                for album in items:
+                    data = client.get_album_detail(album['albumId'])
+                    for song in data['songs']:
+                        trim_song(song)
+                    trim_album(data)
+                    items_with_songs.append(data)
+
+                file_name = Path(file_name)
+                file_name_with_songs = f'{file_name.stem}{with_songs_name_tag}{file_name.suffix}'
+                file_path_with_songs = dir_path.joinpath(file_name_with_songs)
+                print(f'write json: {file_path_with_songs}')
+                with open(file_path_with_songs, 'w') as f:
+                    json.dump(items_with_songs, f, ensure_ascii=False)
         else:
             print(f'--complete-songs is not supported for {fav_type.name}')
             sys.exit(1)

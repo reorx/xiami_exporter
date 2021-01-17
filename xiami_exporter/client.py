@@ -180,7 +180,7 @@ class XiamiClient(HTTPClient):
 
         return data['result']['data']['songPlayInfos']
 
-    def get_playlist_songs(self, pl_data):
+    def get_playlist_detail(self, pl_data):
         """
         pl_data: {
             listId,
@@ -208,6 +208,19 @@ class XiamiClient(HTTPClient):
         r = self.get(url, is_absolute_url=True)
         data = r.json()
         return data['resultObj']
+
+    def get_album_detail(self, album_id):
+        lg.info(f'get_album_detail: album_id={album_id}')
+        uri = '/api/album/getAlbumDetailNormal'
+        q = {
+            'albumId': album_id,
+        }
+        r = self.get(uri, params={
+            '_q': param_json_dump(q),
+            '_s': create_token(self.session, uri, q),
+        })
+        data = r.json()
+        return data['result']['data']['albumDetail']
 
 
 def param_json_dump(o):
@@ -252,11 +265,25 @@ song_useless_keys = [
     'freeAudioInfo',
     'whaleSongVO',
 
-    'listenFiles',  # only in get_playlist_songs
+    'listenFiles',  # only in get_playlist_detail
 ]
 
 
 def trim_song(d):
     for k in song_useless_keys:
+        if k in d:
+            del d[k]
+
+
+album_useless_keys = [
+    'purviewRoleVOs',
+    'purviewStatus',
+    'userGrade',
+    'userGradeComment',
+]
+
+
+def trim_album(d):
+    for k in album_useless_keys:
         if k in d:
             del d[k]
