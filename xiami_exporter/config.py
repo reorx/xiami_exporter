@@ -29,6 +29,10 @@ class Config:
         return self.dir_path.joinpath('json', 'playlists')
 
     @property
+    def json_my_playlists_dir(self):
+        return self.dir_path.joinpath('json', 'my_playlists')
+
+    @property
     def json_artists_dir(self):
         return self.dir_path.joinpath('json', 'artists')
 

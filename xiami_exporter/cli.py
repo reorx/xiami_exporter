@@ -101,6 +101,7 @@ def export_by_fav_type(fav_type: FavType, page, page_size):
         FavType.ALBUMS: client.get_fav_albums,
         FavType.ARTISTS: client.get_fav_artists,
         FavType.PLAYLISTS: client.get_fav_playlists,
+        FavType.MY_PLAYLISTS: client.get_my_playlists,
     }
 
     dir_dict = {
@@ -108,6 +109,7 @@ def export_by_fav_type(fav_type: FavType, page, page_size):
         FavType.ALBUMS: cfg.json_albums_dir,
         FavType.ARTISTS: cfg.json_artists_dir,
         FavType.PLAYLISTS: cfg.json_playlists_dir,
+        FavType.MY_PLAYLISTS: cfg.json_my_playlists_dir,
     }
 
     trim_dict = {

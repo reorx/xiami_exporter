@@ -15,22 +15,24 @@ class FavType(IntEnum):
     ARTISTS = 3
     # MVS = 4
     PLAYLISTS = 5
+    # not an actual fav type, put it here so that cli is easier to use
+    MY_PLAYLISTS = 10
 
 
 DEFAULT_PAGE_SIZE = 30
 
 
 class HTTPClient:
-    base_uri = None
+    base_url = None
 
-    def __init__(self, session: requests.Session, base_uri=None, headers=None):
-        if base_uri:
-            self.base_uri = base_uri
+    def __init__(self, session: requests.Session, base_url=None, headers=None):
+        if base_url:
+            self.base_url = base_url
         self.headers = headers or {}
         self.session = session
 
     def request(self, method, uri, *args, **kwargs):
-        url = self.base_uri + uri
+        url = self.base_url + uri
         if 'headers' in kwargs:
             headers = dict(self.headers)
             headers.update(kwargs['headers'])
@@ -60,8 +62,8 @@ class HTTPClient:
 
 
 class XiamiClient(HTTPClient):
-    base_uri = 'https://www.xiami.com'
-    fav_path = '/api/favorite/getFavorites'
+    base_url = 'https://www.xiami.com'
+    fav_uri = '/api/favorite/getFavorites'
 
     def __init__(self, session, headers=None):
         super().__init__(session, headers=headers)
@@ -87,9 +89,9 @@ class XiamiClient(HTTPClient):
         q = self.make_page_q(page, page_size, FavType.SONGS)
         params = {
             '_q': param_json_dump(q),
-            '_s': create_token(self.session, self.fav_path, q),
+            '_s': create_token(self.session, self.fav_uri, q),
         }
-        r = self.get(self.fav_path, params=params)
+        r = self.get(self.fav_uri, params=params)
         # print(r.status_code, r.content.decode('utf-8'))
         data = r.json()
 
@@ -101,9 +103,9 @@ class XiamiClient(HTTPClient):
         q = self.make_page_q(page, page_size, FavType.ALBUMS)
         params = {
             '_q': param_json_dump(q),
-            '_s': create_token(self.session, self.fav_path, q),
+            '_s': create_token(self.session, self.fav_uri, q),
         }
-        r = self.get(self.fav_path, params=params)
+        r = self.get(self.fav_uri, params=params)
         # print(r.status_code, r.content.decode('utf-8'))
         data = r.json()
 
@@ -114,9 +116,9 @@ class XiamiClient(HTTPClient):
         q = self.make_page_q(page, page_size, FavType.ARTISTS)
         params = {
             '_q': param_json_dump(q),
-            '_s': create_token(self.session, self.fav_path, q),
+            '_s': create_token(self.session, self.fav_uri, q),
         }
-        r = self.get(self.fav_path, params=params)
+        r = self.get(self.fav_uri, params=params)
         # print(r.status_code, r.content.decode('utf-8'))
         data = r.json()
 
@@ -127,9 +129,32 @@ class XiamiClient(HTTPClient):
         q = self.make_page_q(page, page_size, FavType.PLAYLISTS)
         params = {
             '_q': param_json_dump(q),
-            '_s': create_token(self.session, self.fav_path, q),
+            '_s': create_token(self.session, self.fav_uri, q),
         }
-        r = self.get(self.fav_path, params=params)
+        r = self.get(self.fav_uri, params=params)
+        # print(r.status_code, r.content.decode('utf-8'))
+        data = r.json()
+
+        return data['result']['data']['collects']
+
+    def get_my_playlists(self, page, page_size=DEFAULT_PAGE_SIZE):
+        lg.info(f'get_my_playlists: page={page}')
+        uri = '/api/collect/getCollectByUser'
+        q = {
+            "userId": self.user_id,
+            "type": 0,
+            "pagingVO": {
+                "page": page,
+                "pageSize": page_size,
+            },
+            "includeSystemCreate": 1,
+            "sort": 0,
+        }
+        params = {
+            '_q': param_json_dump(q),
+            '_s': create_token(self.session, uri, q),
+        }
+        r = self.get(uri, params=params)
         # print(r.status_code, r.content.decode('utf-8'))
         data = r.json()
 
