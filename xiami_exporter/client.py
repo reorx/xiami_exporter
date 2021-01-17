@@ -1,7 +1,7 @@
+import time
 import logging
 import hashlib
 import json
-from operator import mod
 import requests
 from .http_util import get_cookie_from_cookiejar
 from enum import IntEnum
@@ -56,6 +56,8 @@ class HTTPClient:
             method, url, args, kwargs)
         resp = getattr(self.session, method)(url, *args, **kwargs)
         lg.debug('Response: %s, %s', resp.status_code, resp.content[:100])
+        # wait for a little time, in case we are banned from the server
+        time.sleep(1)
         return resp
 
     def get(self, uri, *args, **kwargs):
