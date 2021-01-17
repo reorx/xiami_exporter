@@ -6,6 +6,7 @@ import json
 import logging
 from collections import OrderedDict
 from .config import Config
+from .os_util import dir_files_sorted
 
 
 lg = logging.getLogger('xiami.store')
@@ -27,13 +28,8 @@ class FileStore:
         songs_dict = OrderedDict()
 
         # read all song json files
-        for _, _, files in os.walk(self.cfg.json_songs_dir):
-            files.sort(key=lambda x: int(re.search(r'\d+', x).group()))
-            lg.debug(f'sorted files: {files}')
-
-            for file_name in files:
-                file_path = os.path.join(self.cfg.json_songs_dir, file_name)
-                self.load_song_json(file_path, songs_dict, str_id_dict)
+        for file_name in dir_files_sorted(self.cfg.json_songs_dir):
+            self.load_song_json(self.cfg.json_songs_dir.joinpath(file_name), songs_dict, str_id_dict)
         return songs_dict
 
     def find_cover_file(self, album_id) -> Optional[Path]:

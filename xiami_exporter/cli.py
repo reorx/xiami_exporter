@@ -12,7 +12,7 @@ from .client import XiamiClient, trim_song, FavType
 from .fetch_loader import load_fetch_module
 from .store import FileStore
 from .http_util import save_response_to_file
-from .os_util import ensure_dir
+from .os_util import ensure_dir, dir_files_sorted
 from .config import cfg
 from .models import db, create_song, Song, DownloadStatus, DoesNotExist
 from .id3 import Tagger
@@ -77,17 +77,64 @@ def check():
     click.echo('Success, you can now use the export commands')
 
 
+fav_type_dir_dict = {
+    FavType.SONGS: cfg.json_songs_dir,
+    FavType.ALBUMS: cfg.json_albums_dir,
+    FavType.ARTISTS: cfg.json_artists_dir,
+    FavType.PLAYLISTS: cfg.json_playlists_dir,
+    FavType.MY_PLAYLISTS: cfg.json_my_playlists_dir,
+}
+
+with_songs_name_tag = '.with_songs'
+
+
 @cli.command(help='export fav data as json files')
 @click.argument('fav_type', nargs=1, type=click.Choice([i.name for i in FavType]))
 @click.option('--page', '-p', default='', help='page number, if omitted, all pages will be exported')
 @click.option('--page-size', '-s', default=100, help='page size, default is 100, max is 100')
-def export(fav_type, page, page_size):
+@click.option('--complete-songs', '-c', is_flag=True, help='complete songs for ALBUMS, PLAYLISTS, MY_PLAYLISTS')
+def export(fav_type, page, page_size, complete_songs):
     fav_type = FavType[fav_type]
-    export_by_fav_type(fav_type, page, page_size)
+    cfg.load()
+
+    if complete_songs:
+        client = get_client()
+        dir_path = fav_type_dir_dict[fav_type]
+
+        if fav_type in [FavType.PLAYLISTS, FavType.MY_PLAYLISTS]:
+            for file_name in dir_files_sorted(dir_path):
+                if with_songs_name_tag in file_name:
+                    continue
+                lg.info(f'scanning {file_name}')
+                with open(dir_path.joinpath(file_name), 'r') as f:
+                    items = json.loads(f.read())
+
+                items_with_songs = []
+                for pl in items:
+                    if pl['type'] != 0:
+                        # skip system created playlists
+                        continue
+                    data = client.get_playlist_songs(pl)
+                    for song in data['songs']:
+                        trim_song(song)
+                    items_with_songs.append(data)
+
+                file_name = Path(file_name)
+                file_name_with_songs = f'{file_name.stem}{with_songs_name_tag}{file_name.suffix}'
+                file_path_with_songs = dir_path.joinpath(file_name_with_songs)
+                print(f'write json: {file_path_with_songs}')
+                with open(file_path_with_songs, 'w') as f:
+                    json.dump(items_with_songs, f, ensure_ascii=False)
+        elif fav_type == FavType.ALBUMS:
+            pass
+        else:
+            print(f'--complete-songs is not supported for {fav_type.name}')
+            sys.exit(1)
+    else:
+        export_by_fav_type(fav_type, page, page_size)
 
 
 def export_by_fav_type(fav_type: FavType, page, page_size):
-    cfg.load()
     client = get_client()
 
     if page:
@@ -104,19 +151,11 @@ def export_by_fav_type(fav_type: FavType, page, page_size):
         FavType.MY_PLAYLISTS: client.get_my_playlists,
     }
 
-    dir_dict = {
-        FavType.SONGS: cfg.json_songs_dir,
-        FavType.ALBUMS: cfg.json_albums_dir,
-        FavType.ARTISTS: cfg.json_artists_dir,
-        FavType.PLAYLISTS: cfg.json_playlists_dir,
-        FavType.MY_PLAYLISTS: cfg.json_my_playlists_dir,
-    }
-
     trim_dict = {
         FavType.SONGS: trim_song,
     }
 
-    dir_path = dir_dict[fav_type]
+    dir_path = fav_type_dir_dict[fav_type]
     ensure_dir(dir_path)
     while True:
         client_method = method_dict[fav_type]
@@ -130,6 +169,7 @@ def export_by_fav_type(fav_type: FavType, page, page_size):
                 trim_dict[fav_type](item)
 
         file_path = dir_path.joinpath(f'{fav_type.name.lower()}-{page}.json')
+        print(f'write json: {file_path}')
         with open(file_path, 'w') as f:
             json.dump(items, f, ensure_ascii=False)
 

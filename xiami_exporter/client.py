@@ -1,6 +1,7 @@
 import logging
 import hashlib
 import json
+from operator import mod
 import requests
 from .http_util import get_cookie_from_cookiejar
 from enum import IntEnum
@@ -32,7 +33,10 @@ class HTTPClient:
         self.session = session
 
     def request(self, method, uri, *args, **kwargs):
-        url = self.base_url + uri
+        if kwargs.pop('is_absolute_url', False):
+            url = uri
+        else:
+            url = self.base_url + uri
         if 'headers' in kwargs:
             headers = dict(self.headers)
             headers.update(kwargs['headers'])
@@ -174,12 +178,41 @@ class XiamiClient(HTTPClient):
 
         return data['result']['data']['songPlayInfos']
 
+    def get_playlist_songs(self, pl_data):
+        """
+        pl_data: {
+            listId,
+            userId,
+            gmtModify,
+        }
+        """
+        pl_id = pl_data['listId']
+        # user_id = pl_data['userId']
+        # modify_ts = pl_data['gmtModify']
+        # modify_ts = int(modify_ts / 1000)
+        lg.info(f'get_play_info: pl_id={pl_id}')
+
+        uri_0 = '/api/collect/getCollectStaticUrl'
+        q = {
+            'listId': pl_id,
+        }
+        r_0 = self.get(uri_0, params={
+            '_q': param_json_dump(q),
+            '_s': create_token(self.session, uri_0, q),
+        })
+        data_0 = r_0.json()
+
+        url = data_0['result']['data']['data']['data']['url']
+        r = self.get(url, is_absolute_url=True)
+        data = r.json()
+        return data['resultObj']
+
 
 def param_json_dump(o):
     return json.dumps(o, separators=(',', ':'))
 
 
-def create_token(session, path, q):
+def create_token(session, path, q=None):
     tk = get_cookie_from_cookiejar(session.cookies, 'xm_sg_tk')
     if not tk:
         raise ValueError('could not get xm_sg_tk from cookie')
@@ -216,6 +249,8 @@ song_useless_keys = [
     'thirdSongs',
     'freeAudioInfo',
     'whaleSongVO',
+
+    'listenFiles',  # only in get_playlist_songs
 ]
 
 
