@@ -477,16 +477,16 @@ def show_song(song_id, str_id, echo_path, echo_database):
 def trim_json():
     cfg.load()
     # song
-    for _, _, files in os.walk(cfg.json_songs_dir):
-        for file_name in files:
-            file_path = cfg.json_songs_dir.joinpath(file_name)
-            with open(file_path, 'r') as f:
-                data = json.loads(f.read())
-            for song in data:
-                trim_song(song)
-            with open(file_path, 'w') as f:
-                lg.info(f'update file {file_path}')
-                f.write(json.dumps(data, ensure_ascii=False))
+    _, _, files = next(os.walk(cfg.json_songs_dir))
+    for file_name in files:
+        file_path = cfg.json_songs_dir.joinpath(file_name)
+        with open(file_path, 'r') as f:
+            data = json.loads(f.read())
+        for song in data:
+            trim_song(song)
+        with open(file_path, 'w') as f:
+            lg.info(f'update file {file_path}')
+            f.write(json.dumps(data, ensure_ascii=False))
 
 
 @cli.command(help='')

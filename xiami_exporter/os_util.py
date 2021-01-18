@@ -23,7 +23,7 @@ REGEX_FILE_NUMBER = re.compile(r'\d+')
 
 
 def dir_files_sorted(dir_path):
-    for _, _, files in os.walk(dir_path):
-        files.sort(key=lambda x: int(re.search(REGEX_FILE_NUMBER, x).group()))
-        for i in files:
-            yield i
+    _, _, files = next(os.walk(dir_path))
+    files.sort(key=lambda x: int(re.search(REGEX_FILE_NUMBER, x).group()))
+    for i in files:
+        yield i
