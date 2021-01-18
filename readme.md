@@ -3,7 +3,7 @@
 导出虾米音乐的个人数据，功能：
 - [x] 导出歌曲为 json
   - [x] 收藏歌曲
-  - [ ] 收藏专辑
+  - [x] 收藏专辑
   - [x] 播放列表
 - [x] 导出收藏艺人为 json
 - [x] 导出收藏专辑为 json
@@ -55,9 +55,21 @@ recal token correct: be5bb12dbb135066f4cb282706019bc8
 Success, you can now use the export commands
 ```
 
-### COMMAND: `export-songs`
+### COMMAND: `export <fav_type>`
 
-导出收藏歌曲为 json 文件，每页一个，文件名为 `song-<page_number>.json`，存放于 `XiamiExports/json/songs`
+> Previously `export-songs`
+
+导出数据为 json 文件，需要指定子命令 fav_type:
+- SONGS: 收藏歌曲
+- ALBUMS: 收藏专辑
+- ARTISTS: 收藏艺人
+- PLAYLISTS: 收藏歌单
+- MY_PLAYLISTS: 我创建的歌单
+
+json 文件每页一个，文件名为 `<fav_type>-<page_number>.json`，存放于 `XiamiExports/json/<fav_type>` 目录下。
+
+对于专辑和歌单 (ALBUMS, PLAYLISTS, MY_PLAYLISTS)，在完成首次导出后，需要额外使用 `-c, --complete-songs` 参数运行，
+来获取包含歌曲的详细信息，每个专辑/歌单的详细信息 json 文件会以 `<id>.json` 为名存放于 `XiamiExports/json/<fav_type>/details` 目录下。
 
 此指令是后续创建数据库、下载音乐的基础。
 
@@ -111,7 +123,17 @@ XiamiExports/
       song-2.json
       ...
     albums/
+      details/
+        ALBUM_ID.json
+      albums-1.json
+      ...
     playlists/
+      details/
+        PLAYLIST_ID.json
+      playlists-1.json
+      ...
+    my_playlists/
+      | same as `playlists/`
     artists/
   music/
     NUM-SONG_ID.mp3
@@ -127,8 +149,8 @@ XiamiExports/
 <summary><strong><code>Development notes, check if you have interests.</code></strong></summary>
 
 
-other TODO
-- [ ] remove useless keys in json
+TODOs
+- download_covers: handle songs from albums/playlists details
 
 ### tag problems
 

@@ -39,7 +39,8 @@ def check_fetch():
 def get_client():
     session, headers = check_fetch()
     # change headers
-    headers['User-Agent'] = DEFAULT_UA
+    if 'User-Agent' not in headers and 'user-agent' not in headers:
+        headers['User-Agent'] = DEFAULT_UA
     client = XiamiClient(session, headers=headers, proxy_url=cfg.proxy_url, wait_time=cfg.wait_time)
     client.set_user_id(cfg.user_id)
     return client
