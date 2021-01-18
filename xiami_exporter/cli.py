@@ -33,14 +33,14 @@ def check_fetch():
         click.echo('For more detailed instructions, please read https://github.com/reorx/xiami_exporter')
         sys.exit(1)
 
-    return load_fetch_module(file_path)
+    return load_fetch_module(file_path, proxy_url=cfg.proxy_url)
 
 
 def get_client():
     session, headers = check_fetch()
     # change headers
     headers['User-Agent'] = DEFAULT_UA
-    client = XiamiClient(session, headers=headers, wait_time=cfg.wait_time)
+    client = XiamiClient(session, headers=headers, proxy_url=cfg.proxy_url, wait_time=cfg.wait_time)
     client.set_user_id(cfg.user_id)
     return client
 
@@ -73,6 +73,7 @@ def init():
 
 @cli.command()
 def check():
+    cfg.load()
     check_fetch()
     click.echo('Success, you can now use the export commands')
 

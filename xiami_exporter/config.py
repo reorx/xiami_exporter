@@ -11,10 +11,12 @@ class Config:
     user_id = ''
     db_name = 'db.sqlite3'
     wait_time = 1
+    # format: socks5://user:pass@host:port
+    proxy_url = ''
 
     class Meta:
         file_path = 'config.json'
-        keys = ['dir_path', 'user_id', 'wait_time']
+        keys = ['dir_path', 'user_id', 'wait_time', 'proxy_url']
 
     # TODO use Path
     @property

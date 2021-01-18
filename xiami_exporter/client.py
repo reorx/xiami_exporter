@@ -27,12 +27,20 @@ DEFAULT_PAGE_SIZE = 30
 class HTTPClient:
     base_url = None
 
-    def __init__(self, session: requests.Session, base_url=None, headers=None, wait_time=1):
+    def __init__(self, session: requests.Session, base_url=None, headers=None, proxy_url=None, wait_time=1):
         if base_url:
             self.base_url = base_url
         self.headers = headers or {}
         self.session = session
         self.wait_time = wait_time
+        self.proxy_url = proxy_url
+        if proxy_url:
+            self.proxies = {
+                'http': proxy_url,
+                'https': proxy_url,
+            }
+        else:
+            self.proxies = {}
 
     def request(self, method, uri, *args, **kwargs):
         if kwargs.pop('is_absolute_url', False):
@@ -46,6 +54,9 @@ class HTTPClient:
         else:
             if self.headers:
                 kwargs['headers'] = self.headers
+
+        if self.proxies and 'proxies' not in kwargs:
+            kwargs['proxies'] = self.proxies
 
         if 'json_data' in kwargs:
             kwargs['data'] = json.dumps(kwargs.pop('json_data'))

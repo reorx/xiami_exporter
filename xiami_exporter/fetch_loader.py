@@ -15,6 +15,7 @@ null = None
 
 session = None
 headers = None
+proxies = None
 
 
 def fetch(url, args):
@@ -51,7 +52,7 @@ def fetch(url, args):
 
     # r = s.get('http://httpbin.org/cookies')
     # print(r.json())
-    r = s.get(url)
+    r = s.get(url, proxies=proxies)
     """
     Possible responses:
     - {'code': 'SG_TOKEN_EXPIRED', 'msg': '令牌过期'}
@@ -81,7 +82,14 @@ def fetch(url, args):
     # print(dict_from_cookiejar(s.cookies))
 
 
-def load_fetch_module(file_path) -> Tuple[requests.Session, dict]:
+def load_fetch_module(file_path, proxy_url=None) -> Tuple[requests.Session, dict]:
+    global proxies
+    if proxy_url:
+        proxies = {
+            'http': proxy_url,
+            'https': proxy_url,
+        }
+
     with open(file_path, 'r') as f:
         exec(f.read())
 
