@@ -10,10 +10,11 @@ class Config:
     dir_path = Path('XiamiExports')
     user_id = ''
     db_name = 'db.sqlite3'
+    wait_time = 1
 
     class Meta:
         file_path = 'config.json'
-        keys = ['dir_path', 'user_id']
+        keys = ['dir_path', 'user_id', 'wait_time']
 
     # TODO use Path
     @property
@@ -25,12 +26,24 @@ class Config:
         return self.dir_path.joinpath('json', 'albums')
 
     @property
+    def json_albums_details_dir(self):
+        return self.dir_path.joinpath('json', 'albums', 'details')
+
+    @property
     def json_playlists_dir(self):
         return self.dir_path.joinpath('json', 'playlists')
 
     @property
+    def json_playlists_details_dir(self):
+        return self.dir_path.joinpath('json', 'playlists', 'details')
+
+    @property
     def json_my_playlists_dir(self):
         return self.dir_path.joinpath('json', 'my_playlists')
+
+    @property
+    def json_my_playlists_details_dir(self):
+        return self.dir_path.joinpath('json', 'my_playlists', 'details')
 
     @property
     def json_artists_dir(self):
@@ -61,10 +74,14 @@ class Config:
         # load from env
         _dir_path = os.environ.get('XME_DIR_PATH')
         if _dir_path:
+            print(f'env: change dir_path to {_dir_path}')
             self.dir_path = _dir_path
 
+        # change types
         if isinstance(self.dir_path, str):
             self.dir_path = Path(self.dir_path)
+        if isinstance(self.wait_time, str):
+            self.wait_time = float(self.wait_time)
 
         ensure_dir(self.dir_path)
 

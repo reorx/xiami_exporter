@@ -40,7 +40,7 @@ def get_client():
     session, headers = check_fetch()
     # change headers
     headers['User-Agent'] = DEFAULT_UA
-    client = XiamiClient(session, headers=headers)
+    client = XiamiClient(session, headers=headers, wait_time=cfg.wait_time)
     client.set_user_id(cfg.user_id)
     return client
 
@@ -77,15 +77,15 @@ def check():
     click.echo('Success, you can now use the export commands')
 
 
-fav_type_dir_dict = {
-    FavType.SONGS: cfg.json_songs_dir,
-    FavType.ALBUMS: cfg.json_albums_dir,
-    FavType.ARTISTS: cfg.json_artists_dir,
-    FavType.PLAYLISTS: cfg.json_playlists_dir,
-    FavType.MY_PLAYLISTS: cfg.json_my_playlists_dir,
-}
-
-with_songs_name_tag = '.with_songs'
+def get_fav_type_dir(fav_type):
+    name = {
+        FavType.SONGS: 'json_songs_dir',
+        FavType.ALBUMS: 'json_albums_dir',
+        FavType.ARTISTS: 'json_artists_dir',
+        FavType.PLAYLISTS: 'json_playlists_dir',
+        FavType.MY_PLAYLISTS: 'json_my_playlists_dir',
+    }[fav_type]
+    return getattr(cfg, name)
 
 
 @cli.command(help='export fav data as json files')
@@ -98,60 +98,57 @@ def export(fav_type, page, page_size, complete_songs):
     cfg.load()
 
     if complete_songs:
-        client = get_client()
-        dir_path = fav_type_dir_dict[fav_type]
-
-        if fav_type in [FavType.PLAYLISTS, FavType.MY_PLAYLISTS]:
-            for file_name in dir_files_sorted(dir_path):
-                if with_songs_name_tag in file_name:
-                    continue
-                lg.info(f'scanning {file_name}')
-                with open(dir_path.joinpath(file_name), 'r') as f:
-                    items = json.loads(f.read())
-
-                items_with_songs = []
-                for pl in items:
-                    if pl['type'] != 0:
-                        # skip system created playlists
-                        continue
-                    data = client.get_playlist_detail(pl)
-                    for song in data['songs']:
-                        trim_song(song)
-                    items_with_songs.append(data)
-
-                file_name = Path(file_name)
-                file_name_with_songs = f'{file_name.stem}{with_songs_name_tag}{file_name.suffix}'
-                file_path_with_songs = dir_path.joinpath(file_name_with_songs)
-                print(f'write json: {file_path_with_songs}')
-                with open(file_path_with_songs, 'w') as f:
-                    json.dump(items_with_songs, f, ensure_ascii=False)
-        elif fav_type == FavType.ALBUMS:
-            for file_name in dir_files_sorted(dir_path):
-                if with_songs_name_tag in file_name:
-                    continue
-                lg.info(f'scanning {file_name}')
-                with open(dir_path.joinpath(file_name), 'r') as f:
-                    items = json.loads(f.read())
-
-                items_with_songs = []
-                for album in items:
-                    data = client.get_album_detail(album['albumId'])
-                    for song in data['songs']:
-                        trim_song(song)
-                    trim_album(data)
-                    items_with_songs.append(data)
-
-                file_name = Path(file_name)
-                file_name_with_songs = f'{file_name.stem}{with_songs_name_tag}{file_name.suffix}'
-                file_path_with_songs = dir_path.joinpath(file_name_with_songs)
-                print(f'write json: {file_path_with_songs}')
-                with open(file_path_with_songs, 'w') as f:
-                    json.dump(items_with_songs, f, ensure_ascii=False)
-        else:
+        if fav_type not in [FavType.ALBUMS, FavType.PLAYLISTS, FavType.MY_PLAYLISTS]:
             print(f'--complete-songs is not supported for {fav_type.name}')
             sys.exit(1)
+        export_detail_by_fav_type(fav_type)
     else:
         export_by_fav_type(fav_type, page, page_size)
+
+
+def export_detail_by_fav_type(fav_type: FavType):
+    client = get_client()
+
+    dir_dict = {
+        FavType.ALBUMS: cfg.json_albums_details_dir,
+        FavType.PLAYLISTS: cfg.json_playlists_details_dir,
+        FavType.MY_PLAYLISTS: cfg.json_my_playlists_details_dir,
+    }
+    dir_path = dir_dict[fav_type]
+    ensure_dir(dir_path)
+
+    fav_dir_path = get_fav_type_dir(fav_type)
+    for file_name in dir_files_sorted(fav_dir_path):
+        lg.info(f'* scanning {file_name}')
+        with open(fav_dir_path.joinpath(file_name), 'r') as f:
+            items = json.loads(f.read())
+
+        for item in items:
+            if fav_type in [FavType.PLAYLISTS, FavType.MY_PLAYLISTS]:
+                item_id = item['listId']
+            else:  # fav_type == FavType.ALBUMS:
+                item_id = item['albumId']
+            file_name = f'{item_id}.json'
+            file_path = dir_path.joinpath(file_name)
+            if file_path.exists():
+                print(f'skip existing: {file_path}')
+                continue
+
+            if fav_type in [FavType.PLAYLISTS, FavType.MY_PLAYLISTS]:
+                if item['type'] != 0:
+                    # skip system created playlists
+                    continue
+                data = client.get_playlist_detail(item_id)
+            else:  # fav_type == FavType.ALBUMS:
+                data = client.get_album_detail(item_id)
+                trim_album(data)
+
+            for song in data['songs']:
+                trim_song(song)
+
+            print(f'write json: {file_path}')
+            with open(file_path, 'w') as f:
+                json.dump(data, f, ensure_ascii=False)
 
 
 def export_by_fav_type(fav_type: FavType, page, page_size):
@@ -175,7 +172,7 @@ def export_by_fav_type(fav_type: FavType, page, page_size):
         FavType.SONGS: trim_song,
     }
 
-    dir_path = fav_type_dir_dict[fav_type]
+    dir_path = get_fav_type_dir(fav_type)
     ensure_dir(dir_path)
     while True:
         client_method = method_dict[fav_type]

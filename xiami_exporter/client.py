@@ -2,9 +2,10 @@ import time
 import logging
 import hashlib
 import json
+from contextlib import contextmanager
+from enum import IntEnum
 import requests
 from .http_util import get_cookie_from_cookiejar
-from enum import IntEnum
 
 
 lg = logging.getLogger('xiami.client')
@@ -26,11 +27,12 @@ DEFAULT_PAGE_SIZE = 30
 class HTTPClient:
     base_url = None
 
-    def __init__(self, session: requests.Session, base_url=None, headers=None):
+    def __init__(self, session: requests.Session, base_url=None, headers=None, wait_time=1):
         if base_url:
             self.base_url = base_url
         self.headers = headers or {}
         self.session = session
+        self.wait_time = wait_time
 
     def request(self, method, uri, *args, **kwargs):
         if kwargs.pop('is_absolute_url', False):
@@ -56,8 +58,9 @@ class HTTPClient:
             method, url, args, kwargs)
         resp = getattr(self.session, method)(url, *args, **kwargs)
         lg.debug('Response: %s, %s', resp.status_code, resp.content[:100])
+
         # wait for a little time, in case we are banned from the server
-        time.sleep(1)
+        time.sleep(self.wait_time)
         return resp
 
     def get(self, uri, *args, **kwargs):
@@ -67,12 +70,18 @@ class HTTPClient:
         return self.request('post', uri, *args, **kwargs)
 
 
+@contextmanager
+def response_context(resp):
+    try:
+        yield None
+    except KeyError:
+        print(f'response: {resp.content.decode("utf8")}')
+        raise
+
+
 class XiamiClient(HTTPClient):
     base_url = 'https://www.xiami.com'
     fav_uri = '/api/favorite/getFavorites'
-
-    def __init__(self, session, headers=None):
-        super().__init__(session, headers=headers)
 
     # API methods
 
@@ -180,18 +189,7 @@ class XiamiClient(HTTPClient):
 
         return data['result']['data']['songPlayInfos']
 
-    def get_playlist_detail(self, pl_data):
-        """
-        pl_data: {
-            listId,
-            userId,
-            gmtModify,
-        }
-        """
-        pl_id = pl_data['listId']
-        # user_id = pl_data['userId']
-        # modify_ts = pl_data['gmtModify']
-        # modify_ts = int(modify_ts / 1000)
+    def get_playlist_detail(self, pl_id):
         lg.info(f'get_play_info: pl_id={pl_id}')
 
         uri_0 = '/api/collect/getCollectStaticUrl'
@@ -220,7 +218,8 @@ class XiamiClient(HTTPClient):
             '_s': create_token(self.session, uri, q),
         })
         data = r.json()
-        return data['result']['data']['albumDetail']
+        with response_context(r):
+            return data['result']['data']['albumDetail']
 
 
 def param_json_dump(o):
