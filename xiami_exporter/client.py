@@ -108,10 +108,11 @@ class XiamiClient(HTTPClient):
         }
         r = self.get(self.fav_uri, params=params)
         # print(r.status_code, r.content.decode('utf-8'))
-        data = r.json()
 
         # when out of max page, songs is "null"
-        return data['result']['data']['songs']
+        with response_context(r):
+            data = r.json()
+            return data['result']['data']['songs']
 
     def get_fav_albums(self, page, page_size=DEFAULT_PAGE_SIZE):
         lg.info(f'get_fav_albums: page={page}')
@@ -122,9 +123,10 @@ class XiamiClient(HTTPClient):
         }
         r = self.get(self.fav_uri, params=params)
         # print(r.status_code, r.content.decode('utf-8'))
-        data = r.json()
 
-        return data['result']['data']['albums']
+        with response_context(r):
+            data = r.json()
+            return data['result']['data']['albums']
 
     def get_fav_artists(self, page, page_size=DEFAULT_PAGE_SIZE):
         lg.info(f'get_fav_albums: page={page}')
@@ -135,9 +137,10 @@ class XiamiClient(HTTPClient):
         }
         r = self.get(self.fav_uri, params=params)
         # print(r.status_code, r.content.decode('utf-8'))
-        data = r.json()
 
-        return data['result']['data']['artists']
+        with response_context(r):
+            data = r.json()
+            return data['result']['data']['artists']
 
     def get_fav_playlists(self, page, page_size=DEFAULT_PAGE_SIZE):
         lg.info(f'get_fav_playlists: page={page}')
@@ -148,9 +151,10 @@ class XiamiClient(HTTPClient):
         }
         r = self.get(self.fav_uri, params=params)
         # print(r.status_code, r.content.decode('utf-8'))
-        data = r.json()
 
-        return data['result']['data']['collects']
+        with response_context(r):
+            data = r.json()
+            return data['result']['data']['collects']
 
     def get_my_playlists(self, page, page_size=DEFAULT_PAGE_SIZE):
         lg.info(f'get_my_playlists: page={page}')
@@ -171,9 +175,10 @@ class XiamiClient(HTTPClient):
         }
         r = self.get(uri, params=params)
         # print(r.status_code, r.content.decode('utf-8'))
-        data = r.json()
 
-        return data['result']['data']['collects']
+        with response_context(r):
+            data = r.json()
+            return data['result']['data']['collects']
 
     def get_play_info(self, song_ids):
         lg.info(f'get_play_info: song_ids={song_ids}')
@@ -185,9 +190,10 @@ class XiamiClient(HTTPClient):
             '_q': param_json_dump(q),
             '_s': create_token(self.session, uri, q),
         })
-        data = r.json()
 
-        return data['result']['data']['songPlayInfos']
+        with response_context(r):
+            data = r.json()
+            return data['result']['data']['songPlayInfos']
 
     def get_playlist_detail(self, pl_id):
         lg.info(f'get_play_info: pl_id={pl_id}')
@@ -204,8 +210,9 @@ class XiamiClient(HTTPClient):
 
         url = data_0['result']['data']['data']['data']['url']
         r = self.get(url, is_absolute_url=True)
-        data = r.json()
-        return data['resultObj']
+        with response_context(r):
+            data = r.json()
+            return data['resultObj']
 
     def get_album_detail(self, album_id):
         lg.info(f'get_album_detail: album_id={album_id}')
@@ -217,8 +224,8 @@ class XiamiClient(HTTPClient):
             '_q': param_json_dump(q),
             '_s': create_token(self.session, uri, q),
         })
-        data = r.json()
         with response_context(r):
+            data = r.json()
             return data['result']['data']['albumDetail']
 
 
