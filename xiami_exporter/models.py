@@ -1,7 +1,6 @@
 import peewee
 from peewee import CharField, IntegerField, BooleanField, DateTimeField
 from peewee import DoesNotExist  # NOQA
-import peeweedbevolve  # NOQA
 
 
 # http://docs.peewee-orm.com/en/latest/peewee/database.html#run-time-database-configuration
