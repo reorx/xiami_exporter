@@ -1,30 +1,42 @@
+import sys
 import peewee as pw
 from playhouse import migrate as pw_migrate
 import logging
 import datetime
-import sys
 from .models import db, all_models, Migration
 from .store import FileStore
 
 
-schema_version = 3
+schema_version = 4
 
 lg = logging.getLogger('xiami.db')
 
 migrator = pw_migrate.SqliteMigrator(db)
 
 
+def table_exists(db, name):
+    """
+    vscode python syntax analyzer thinks that db.table_exists will always raise NotImplementedError,
+    thus code below are seen as unreachable and painted grey,
+    this function is an ugly fix for this behavior.
+    """
+    try:
+        return db.table_exists(name)
+    except NotImplementedError:
+        pass
+
+
 def migrate(fs: FileStore):
-    if db.table_exists('song'):
+    if table_exists(db, 'song'):
         # table 'song' exists means schema_version >= 2
-        if db.table_exists('migration'):
+        if table_exists(db, 'migration'):
             # version > 2 must have migration records, or fail here, and recreate the database file manually
             m_query = list(Migration.select().order_by(Migration.schema_version.desc()).limit(1))
             try:
                 m = list(m_query)[0]
             except IndexError:
                 print('migration table is broken, please delete the database and re-run the command')
-                return sys.exit(1)
+                sys.exit(1)
             latest_version = m.schema_version
         else:
             # version 2 has no Migration model before running
@@ -86,3 +98,18 @@ def migration_003(fs: FileStore):
 
     for song in fs.load_all_song_json().values():
         Song.update(disc=song['cdSerial']).where(Song.id == song['songId']).execute()
+
+
+def migration_004(fs):
+    """
+    - add song_list table
+    """
+    class SongList(BaseModel):
+        list_type = pw.CharField()
+        list_id = pw.IntegerField()
+        song_id = pw.IntegerField()
+
+        class Meta:
+            table_name = 'song_list'
+
+    db.create_tables([SongList])

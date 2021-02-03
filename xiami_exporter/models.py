@@ -51,6 +51,18 @@ class Song(BaseModel):
         return f'{self.id}: {self.name} - {self.artist_name} - {self.album_name}'
 
 
+class SongList(BaseModel):
+    list_type = CharField()
+    list_id = IntegerField()
+    song_id = IntegerField()
+
+    class Meta:
+        table_name = 'song_list'
+
+    def __str__(self):
+        return f'{self.list_type}-{self.list_id}: {self.song_id}'
+
+
 class DownloadStatus:
     NOT_SET = 0
     SUCCESS = 1
