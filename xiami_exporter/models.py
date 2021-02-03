@@ -63,6 +63,14 @@ class SongList(BaseModel):
         return f'{self.list_type}-{self.list_id}: {self.song_id}'
 
 
+class SongListType:
+    ALBUM = 'ALBUM'
+    PLAYLIST = 'PLAYLIST'
+
+
+SONG_LIST_TYPES = [SongListType.ALBUM, SongListType.PLAYLIST]
+
+
 class DownloadStatus:
     NOT_SET = 0
     SUCCESS = 1
@@ -77,7 +85,7 @@ class DownloadStatus:
         return ''
 
 
-def create_song(data, row_number) -> Song:
+def create_song(data, row_number, attrs=None) -> Song:
     md = {}
     for field in Song._meta.sorted_fields:
         # print(field.name, field.help_text)
@@ -88,8 +96,8 @@ def create_song(data, row_number) -> Song:
     song.row_number = row_number
 
     # sub name
-    sub_name = data['subName']
-    new_sub_name = data['newSubName']
+    sub_name = data['subName'] or ''
+    new_sub_name = data['newSubName'] or ''
     if sub_name and new_sub_name:
         if sub_name != new_sub_name:
             sub_name = f'{new_sub_name} ({sub_name})'
@@ -98,7 +106,11 @@ def create_song(data, row_number) -> Song:
     song.sub_name = sub_name
 
     song.download_status = DownloadStatus.NOT_SET
-    song.in_songs = True
+    if attrs:
+        for k, v in attrs.items():
+            setattr(song, k, v)
+    else:
+        song.in_songs = True
     try:
         song.save(force_insert=True)
     except peewee.IntegrityError:

@@ -14,7 +14,11 @@ from .store import FileStore
 from .http_util import save_response_to_file
 from .os_util import ensure_dir, dir_files_sorted
 from .config import cfg
-from .models import db, create_song, Song, DownloadStatus, DoesNotExist
+from .models import (
+    db, create_song, Song,
+    SongList, SongListType, SONG_LIST_TYPES,
+    DownloadStatus, DoesNotExist,
+)
 from .id3 import Tagger
 
 
@@ -49,6 +53,7 @@ def get_client():
 def prepare_db():
     from .migrations import migrate
 
+    print(f'use db: {cfg.db_path.resolve()}')
     db.init(str(cfg.db_path.resolve()))
     migrate(FileStore(cfg))
 
@@ -58,6 +63,7 @@ def prepare_db():
 def cli(debug):
     if debug:
         lg.setLevel(logging.DEBUG)
+        # uncomment this line to see peewee db log
         # logging.getLogger().setLevel(logging.DEBUG)
 
 
@@ -94,7 +100,7 @@ def get_fav_type_dir(fav_type):
 @click.argument('fav_type', nargs=1, type=click.Choice([i.name for i in FavType]))
 @click.option('--page', '-p', default='', help='page number, if omitted, all pages will be exported')
 @click.option('--page-size', '-s', default=100, help='page size, default is 100, max is 100')
-@click.option('--complete-songs', '-c', is_flag=True, help='complete songs for ALBUMS, PLAYLISTS, MY_PLAYLISTS')
+@click.option('--complete-songs', '-c', is_flag=True, help='complete songs db for ALBUMS, PLAYLISTS, MY_PLAYLISTS')
 def export(fav_type, page, page_size, complete_songs):
     fav_type = FavType[fav_type]
     cfg.load()
@@ -218,6 +224,55 @@ def create_songs_db(clear):
     print(f'create songs done, total: {row_number}')
 
 
+@cli.command(help='create song_list in database')
+@click.argument('songlist_type', nargs=1, type=click.Choice(SONG_LIST_TYPES))
+@click.option('--clear', '-c', is_flag=True, help='clear db before inserting')
+def create_song_list_db(songlist_type, clear):
+    cfg.load()
+    prepare_db()
+    if clear:
+        # TODO by type
+        SongList.delete().execute()
+
+    # albums
+    if songlist_type == SongListType.ALBUM:
+        details_dir = cfg.json_albums_details_dir
+        for file_name in dir_files_sorted(details_dir):
+            with open(details_dir.joinpath(file_name), 'r') as f:
+                detail = json.loads(f.read())
+
+            album_id = detail['albumId']
+            attrs = {'in_albums': True}
+            lg.info(f'album detail: album_id={album_id} songs={len(detail["songs"])}')
+            with db.atomic():
+                for song_data in detail['songs']:
+                    song_id = song_data["songId"]
+                    try:
+                        song = Song.get(Song.id == song_id)
+                    except DoesNotExist:
+                        song = None
+                    if song:
+                        song.in_albums = True
+                        song.save()
+                    else:
+                        try:
+                            create_song(song_data, 0, attrs)
+                        except Exception:
+                            print(f'create_song: album_id={album_id} song_id={song_id}')
+                            raise
+                    sl = SongList(
+                        list_type=SongListType.ALBUM,
+                        list_id=album_id,
+                        song_id=song_id,
+                    )
+                    sl.save(force_insert=True)
+    else:
+        # playlists
+        # FavType.PLAYLISTS: cfg.json_playlists_details_dir,
+        # FavType.MY_PLAYLISTS: cfg.json_my_playlists_details_dir,
+        pass
+
+
 def get_effective_playinfo(song_id, playinfos):
     playinfo = sorted(playinfos, key=lambda x: x['fileSize'], reverse=True)[0]
     if playinfo['fileSize'] == 0:
@@ -296,11 +351,12 @@ def download_songs(client, audioinfos, update_db=True):
 
 
 @cli.command(help='download songs mp3')
+@click.option('--song-list', '-t', is_flag=True, help='download songs for song list')
 @click.option('--song-id', '-i', default='', help='only download song(s) by id, comma separated')
 @click.option('--filter-status', default=DownloadStatus.NOT_SET, help='filter Song.download_status')
 @click.option('--batch-size', default=10, help='number of songs in a batch download task')
 @click.option('--batch-count', default=0, help='number of batch download tasks')
-def download_music(song_id, filter_status, batch_size, batch_count):
+def download_music(song_list, song_id, filter_status, batch_size, batch_count):
     cfg.load()
     prepare_db()
     client = get_client()
@@ -311,7 +367,7 @@ def download_music(song_id, filter_status, batch_size, batch_count):
         audioinfos = get_audioinfos(client, song_ids, try_bak_id=False)
         download_songs(client, audioinfos)
     else:
-        def yield_songs(size):
+        def yield_all_songs(size):
             songs = []
             for song in Song.select().where(Song.download_status == filter_status).order_by(Song.row_number):
                 songs.append(song)
@@ -321,8 +377,26 @@ def download_music(song_id, filter_status, batch_size, batch_count):
             if songs:
                 yield songs
 
+        def yield_fav_songs(size):
+            songs = []
+            for song in Song.select().where(
+                Song.download_status == filter_status,
+                Song.in_songs == True,
+            ).order_by(Song.row_number):
+                songs.append(song)
+                if len(songs) == size:
+                    yield songs
+                    songs = []
+            if songs:
+                yield songs
+
+        if song_list:
+            yield_func = yield_all_songs
+        else:
+            yield_func = yield_fav_songs
+
         _batch_count = 0
-        for songs in yield_songs(batch_size):
+        for songs in yield_func(batch_size):
             _batch_count += 1
             if batch_count > 0 and _batch_count > batch_count:
                 break
@@ -488,6 +562,21 @@ def trim_json():
         with open(file_path, 'w') as f:
             lg.info(f'update file {file_path}')
             f.write(json.dumps(data, ensure_ascii=False))
+
+
+@cli.command()
+def update_download_status():
+    cfg.load()
+    prepare_db()
+    for file_name in dir_files_sorted(cfg.music_dir):
+        rv = REGEX_MUSIC_FILE.search(file_name)
+        if not rv:
+            lg.info(f'file {file_name}: skip for name not match ROW_NUMBER-SONG_ID.mp3 file pattern')
+            continue
+        song_id = rv.groups()[0]
+        song = Song.get(Song.id == song_id)
+        song.download_status = DownloadStatus.SUCCESS
+        song.save()
 
 
 @cli.command(help='')
