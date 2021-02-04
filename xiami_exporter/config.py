@@ -56,6 +56,10 @@ class Config:
         return self.dir_path.joinpath('music')
 
     @property
+    def music_albums_dir(self):
+        return self.dir_path.joinpath('music', 'albums')
+
+    @property
     def covers_dir(self):
         return self.dir_path.joinpath('covers')
 

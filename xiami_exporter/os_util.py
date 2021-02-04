@@ -27,3 +27,10 @@ def dir_files_sorted(dir_path):
     files.sort(key=lambda x: int(re.search(REGEX_FILE_NUMBER, x).group()))
     for i in files:
         yield i
+
+
+def dir_files(dir_path):
+    with os.scandir(dir_path) as dir_entries:
+        for i in dir_entries:
+            if i.is_file():
+                yield i.name

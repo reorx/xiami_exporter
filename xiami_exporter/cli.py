@@ -1,6 +1,6 @@
 from pathlib import Path
 import json
-import re
+import shutil
 import os
 import sys
 import time
@@ -404,6 +404,42 @@ def download_music(song_list, song_id, filter_status, batch_size, batch_count):
             download_songs(client, audioinfos)
 
 
+@cli.command(help='collect song lists (albums, playlists) audio files to dirs')
+def collect_song_lists():
+    cfg.load()
+
+    # load songs
+    files_dict = FileStore(cfg).load_music_files()
+    # print(type(list(files_dict.keys())[0]))
+
+    # albums
+    details_dir = cfg.json_albums_details_dir
+    for file_name in dir_files_sorted(details_dir):
+        with open(details_dir.joinpath(file_name), 'r') as f:
+            detail = json.loads(f.read())
+
+        album_id = detail['albumId']
+        album_name = detail['albumName']
+        album_dir_name = f'{album_id}-{album_name}'
+        album_dir_path = cfg.music_albums_dir.joinpath(album_dir_name)
+        print(f'create album dir: {album_dir_name}')
+        ensure_dir(album_dir_path)
+
+        for song_data in detail['songs']:
+            song_id = song_data['songId']
+            if song_id in files_dict:
+                file_name, file_path = files_dict[song_id]
+                if album_dir_path.joinpath(file_name).exists():
+                    lg.debug(f'destination file exists, skip copy: {file_path}')
+                    pass
+                else:
+                    shutil.copy(file_path, album_dir_path)
+            else:
+                lg.debug(f'song file not found: {song_id}')
+                with open(album_dir_path.joinpath(f'{song_id}.json'), 'w') as f:
+                    f.write(json.dumps(song_data, ensure_ascii=False))
+
+
 @cli.command(help='download album covers')
 @click.option('--force', '-f', is_flag=True, help='force download even if cover file already exists')
 @click.option('--artist-logos', '-l', is_flag=True, help='download artist logos instead')
@@ -442,7 +478,7 @@ def download_covers(force, artist_logos):
             else:
                 print(f'Download artist logo {file_name}')
 
-            resp = client.session.get(url)
+            resp = client.get(url, is_absolute_url=True)
             try:
                 save_response_to_file(resp, file_path=file_path, logger=lg)
             except Exception as e:
@@ -464,14 +500,11 @@ def download_covers(force, artist_logos):
         else:
             print(f'Download cover {file_name}')
 
-        resp = client.session.get(url)
+        resp = client.get(url, is_absolute_url=True)
         try:
             save_response_to_file(resp, file_path=file_path, logger=lg)
         except Exception as e:
             lg.error(f'failed to download {file_name}:\n  url={url}\n  error={e}')
-
-
-REGEX_MUSIC_FILE = re.compile(r'^\d+-(\d+)\.')
 
 
 @cli.command(help='tag music ID3 from database')
@@ -486,29 +519,22 @@ def tag_music(show_tags):
         tagger.show_tags()
         return
 
-    for _, _, files in os.walk(cfg.music_dir):
-        for file_name in files:
-            # print(_file_name)
-            rv = REGEX_MUSIC_FILE.search(file_name)
-            if not rv:
-                lg.info(f'file {file_name}: skip for name not match ROW_NUMBER-SONG_ID.mp3 file pattern')
-                continue
-            song_id = rv.groups()[0]
-            try:
-                song = Song.get(Song.id == song_id)
-            except DoesNotExist:
-                lg.warn(f'file {file_name}: song does not exist')
-                continue
+    for file_name, file_path, song_id in fs.yield_music_files():
+        try:
+            song = Song.get(Song.id == song_id)
+        except DoesNotExist:
+            lg.warn(f'file {file_name}: song does not exist')
+            continue
 
-            tagger = Tagger(cfg.music_dir.joinpath(file_name))
-            tagger.tag_by_model(song, clear_old=True)
+        tagger = Tagger(file_path)
+        tagger.tag_by_model(song, clear_old=True)
 
-            # cover
-            cover_file_path = fs.find_cover_file(song.album_id)
-            if cover_file_path:
-                tagger.tag_cover(cover_file_path)
+        # cover
+        cover_file_path = fs.find_cover_file(song.album_id)
+        if cover_file_path:
+            tagger.tag_cover(cover_file_path)
 
-            tagger.save()
+        tagger.save()
 
 
 @cli.command(help='show song information from json/database')
@@ -532,13 +558,9 @@ def show_song(song_id, str_id, echo_path, echo_database):
 
     song_id = data['songId']
     if echo_path:
-        for _, _, files in os.walk(cfg.music_dir):
-            for file_name in files:
-                rv = REGEX_MUSIC_FILE.search(file_name)
-                if rv:
-                    _song_id = rv.groups()[0]
-                    if _song_id == str(song_id):
-                        print(cfg.music_dir.joinpath(file_name))
+        for _, file_path, song_id_ in fs.yield_music_files():
+            if song_id_ == song_id:
+                print(file_path)
     elif echo_database:
         prepare_db()
         song = Song.get(Song.id == song_id)
@@ -568,12 +590,8 @@ def trim_json():
 def update_download_status():
     cfg.load()
     prepare_db()
-    for file_name in dir_files_sorted(cfg.music_dir):
-        rv = REGEX_MUSIC_FILE.search(file_name)
-        if not rv:
-            lg.info(f'file {file_name}: skip for name not match ROW_NUMBER-SONG_ID.mp3 file pattern')
-            continue
-        song_id = rv.groups()[0]
+    fs = FileStore(cfg)
+    for _, _, song_id in fs.yield_music_files():
         song = Song.get(Song.id == song_id)
         song.download_status = DownloadStatus.SUCCESS
         song.save()
