@@ -49,7 +49,7 @@ class FileStore:
     def load_music_files(self, dir_path=None):
         files_dict = {}
         for file_name, file_path, song_id in self.yield_music_files(dir_path=dir_path):
-            files_dict[song_id] = (file_name, dir_path.joinpath(file_name))
+            files_dict[song_id] = (file_name, file_path)
         return files_dict
 
     def yield_music_files(self, dir_path=None):

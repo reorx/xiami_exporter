@@ -268,9 +268,41 @@ def create_song_list_db(songlist_type, clear):
                     sl.save(force_insert=True)
     else:
         # playlists
-        # FavType.PLAYLISTS: cfg.json_playlists_details_dir,
-        # FavType.MY_PLAYLISTS: cfg.json_my_playlists_details_dir,
-        pass
+        def yield_playlist_details():
+            # for file_name in dir_files_sorted(cfg.json_playlists_details_dir):
+            #     yield file_name, cfg.json_playlists_details_dir.joinpath(file_name)
+            for file_name in dir_files_sorted(cfg.json_my_playlists_details_dir):
+                yield file_name, cfg.json_my_playlists_details_dir.joinpath(file_name)
+
+        for file_name, file_path in yield_playlist_details():
+            with open(file_path, 'r') as f:
+                detail = json.loads(f.read())
+
+            playlist_id = detail['listId']
+            attrs = {'in_playlists': True}
+            lg.info(f'playlist detail: playlist_id={playlist_id} songs={len(detail["songs"])}')
+            with db.atomic():
+                for song_data in detail['songs']:
+                    song_id = song_data["songId"]
+                    try:
+                        song = Song.get(Song.id == song_id)
+                    except DoesNotExist:
+                        song = None
+                    if song:
+                        song.in_playlists = True
+                        song.save()
+                    else:
+                        try:
+                            create_song(song_data, 0, attrs)
+                        except Exception:
+                            print(f'create_song: playlist_id={playlist_id} song_id={song_id}')
+                            raise
+                    sl = SongList(
+                        list_type=SongListType.PLAYLIST,
+                        list_id=playlist_id,
+                        song_id=song_id,
+                    )
+                    sl.save(force_insert=True)
 
 
 def get_effective_playinfo(song_id, playinfos):
@@ -437,6 +469,33 @@ def collect_song_lists():
             else:
                 lg.debug(f'song file not found: {song_id}')
                 with open(album_dir_path.joinpath(f'{song_id}.json'), 'w') as f:
+                    f.write(json.dumps(song_data, ensure_ascii=False))
+
+    # my playlists
+    details_dir = cfg.json_my_playlists_details_dir
+    for file_name in dir_files_sorted(details_dir):
+        with open(details_dir.joinpath(file_name), 'r') as f:
+            detail = json.loads(f.read())
+
+        pl_id = detail['listId']
+        pl_name = detail['collectName']
+        pl_dir_name = f'{pl_id}-{pl_name}'
+        pl_dir_path = cfg.music_my_playlists_dir.joinpath(pl_dir_name)
+        print(f'create playlist dir: {pl_dir_name}')
+        ensure_dir(pl_dir_path)
+
+        for song_data in detail['songs']:
+            song_id = song_data['songId']
+            if song_id in files_dict:
+                file_name, file_path = files_dict[song_id]
+                if pl_dir_path.joinpath(file_name).exists():
+                    lg.debug(f'destination file exists, skip copy: {file_path}')
+                    pass
+                else:
+                    shutil.copy(file_path, pl_dir_path)
+            else:
+                lg.debug(f'song file not found: {song_id}')
+                with open(pl_dir_path.joinpath(f'{song_id}.json'), 'w') as f:
                     f.write(json.dumps(song_data, ensure_ascii=False))
 
 
