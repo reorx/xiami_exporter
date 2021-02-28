@@ -6,7 +6,7 @@ import json
 import logging
 from collections import OrderedDict
 from .config import Config
-from .os_util import dir_files_sorted, dir_files
+from .os_util import dir_files_sorted
 
 
 lg = logging.getLogger('xiami.store')
@@ -52,16 +52,23 @@ class FileStore:
             files_dict[song_id] = (file_name, file_path)
         return files_dict
 
-    def yield_music_files(self, dir_path=None):
+    def yield_music_files(self, dir_path=None, recurse=False):
         if not dir_path:
             dir_path = self.cfg.music_dir
-        for file_name in dir_files(dir_path):
-            rv = REGEX_MUSIC_FILE.search(file_name)
-            if not rv:
-                lg.info(f'file {file_name}: skip for name not match ROW_NUMBER-SONG_ID.mp3 file pattern')
-                continue
-            song_id = int(rv.groups()[0])
-            yield file_name, dir_path.joinpath(file_name), song_id
+        for _dir_path, _, file_names in os.walk(dir_path):
+            lg.info(f'walk dir: {_dir_path}')
+            for file_name in file_names:
+                if file_name.endswith('.json'):
+                    # skip .json files
+                    continue
+                rv = REGEX_MUSIC_FILE.search(file_name)
+                if not rv:
+                    lg.info(f'file {file_name}: skip for name not match ROW_NUMBER-SONG_ID.mp3 file pattern')
+                    continue
+                song_id = int(rv.groups()[0])
+                yield file_name, Path(_dir_path).joinpath(file_name), song_id
+            if not recurse:
+                break
 
     def find_cover_file(self, album_id) -> Optional[Path]:
         cover_files_dict = getattr(self, 'cover_files_dict', None)

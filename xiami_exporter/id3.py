@@ -117,6 +117,8 @@ DEFAULT_KEY_MAP = {
     'arrangement': 'involvedpeople',  # TIPL
 }
 
+COVER_CACHE = {}
+
 
 class Tagger:
     def __init__(self, file_path: Union[Path, str]):
@@ -134,7 +136,7 @@ class Tagger:
         return None
 
     def tag_by_model(self, song: Song, clear_old=False):
-        lg.info(f'Tag song: {self.file_path.name}')
+        lg.debug(f'Tag song: {self.file_path.name}')
 
         if clear_old:
             # Delete old
@@ -171,8 +173,12 @@ class Tagger:
         img = Image.open(file_path)
         # if larger than 512KiB, resize
         if file_path.stat().st_size > 512 * 1024:
-            lg.info(f'create thumbnail for image {file_path}')
-            img.thumbnail((500, 500))
+            if file_path in COVER_CACHE:
+                img = COVER_CACHE[file_path]
+            else:
+                lg.debug(f'create thumbnail for image {file_path}')
+                img.thumbnail((500, 500))
+                COVER_CACHE[file_path] = img
 
         self.mutagen_obj['cover'] = img
 

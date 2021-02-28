@@ -243,7 +243,7 @@ def create_song_list_db(songlist_type, clear):
 
             album_id = detail['albumId']
             attrs = {'in_albums': True}
-            lg.info(f'album detail: album_id={album_id} songs={len(detail["songs"])}')
+            lg.debug(f'album detail: album_id={album_id} songs={len(detail["songs"])}')
             with db.atomic():
                 for song_data in detail['songs']:
                     song_id = song_data["songId"]
@@ -258,14 +258,20 @@ def create_song_list_db(songlist_type, clear):
                         try:
                             create_song(song_data, 0, attrs)
                         except Exception:
-                            print(f'create_song: album_id={album_id} song_id={song_id}')
+                            print(f'create_song error: album_id={album_id} song_id={song_id}')
                             raise
-                    sl = SongList(
-                        list_type=SongListType.ALBUM,
-                        list_id=album_id,
-                        song_id=song_id,
-                    )
-                    sl.save(force_insert=True)
+                    try:
+                        SongList.get(
+                            SongList.list_type == SongListType.ALBUM,
+                            SongList.list_id == album_id,
+                            SongList.song_id == song_id)
+                    except SongList.DoesNotExist:
+                        sl = SongList(
+                            list_type=SongListType.ALBUM,
+                            list_id=album_id,
+                            song_id=song_id,
+                        )
+                        sl.save(force_insert=True)
     else:
         # playlists
         def yield_playlist_details():
@@ -280,7 +286,7 @@ def create_song_list_db(songlist_type, clear):
 
             playlist_id = detail['listId']
             attrs = {'in_playlists': True}
-            lg.info(f'playlist detail: playlist_id={playlist_id} songs={len(detail["songs"])}')
+            lg.debug(f'playlist detail: playlist_id={playlist_id} songs={len(detail["songs"])}')
             with db.atomic():
                 for song_data in detail['songs']:
                     song_id = song_data["songId"]
@@ -295,14 +301,20 @@ def create_song_list_db(songlist_type, clear):
                         try:
                             create_song(song_data, 0, attrs)
                         except Exception:
-                            print(f'create_song: playlist_id={playlist_id} song_id={song_id}')
+                            print(f'create_song error: playlist_id={playlist_id} song_id={song_id}')
                             raise
-                    sl = SongList(
-                        list_type=SongListType.PLAYLIST,
-                        list_id=playlist_id,
-                        song_id=song_id,
-                    )
-                    sl.save(force_insert=True)
+                    try:
+                        SongList.get(
+                            SongList.list_type == SongListType.PLAYLIST,
+                            SongList.list_id == playlist_id,
+                            SongList.song_id == song_id)
+                    except SongList.DoesNotExist:
+                        sl = SongList(
+                            list_type=SongListType.PLAYLIST,
+                            list_id=playlist_id,
+                            song_id=song_id,
+                        )
+                        sl.save(force_insert=True)
 
 
 def get_effective_playinfo(song_id, playinfos):
@@ -567,8 +579,9 @@ def download_covers(force, artist_logos):
 
 
 @cli.command(help='tag music ID3 from database')
+@click.option('--sub-dir', '-d', default='', help='sub dir of music dir, if omitted, only files under music dir will be tagged')
 @click.option('--show-tags', '-t', default='', help='show tags from a file, for debug purpose')
-def tag_music(show_tags):
+def tag_music(sub_dir, show_tags):
     cfg.load()
     prepare_db()
     fs = FileStore(cfg)
@@ -578,11 +591,16 @@ def tag_music(show_tags):
         tagger.show_tags()
         return
 
-    for file_name, file_path, song_id in fs.yield_music_files():
+    if sub_dir:
+        it = fs.yield_music_files(dir_path=cfg.music_dir.joinpath(sub_dir), recurse=True)
+    else:
+        it = fs.yield_music_files()
+
+    for file_name, file_path, song_id in it:
         try:
             song = Song.get(Song.id == song_id)
         except DoesNotExist:
-            lg.warn(f'file {file_name}: song does not exist')
+            lg.warning(f'file {file_name}, id {song_id}: song does not exist')
             continue
 
         tagger = Tagger(file_path)

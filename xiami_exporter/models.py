@@ -86,11 +86,19 @@ class DownloadStatus:
 
 
 def create_song(data, row_number, attrs=None) -> Song:
+    print(f'create_song: songId={data.get("songId")}')
+    # artistId might be empty
+    if not data.get('artistId'):
+        data['artistId'] = 0
+
     md = {}
     for field in Song._meta.sorted_fields:
         # print(field.name, field.help_text)
         if field.help_text:
-            md[field.name] = data[field.help_text]
+            v = data[field.help_text]
+            if v is None:
+                v = ''
+            md[field.name] = v
 
     song = Song(**md)
     song.row_number = row_number
@@ -111,10 +119,7 @@ def create_song(data, row_number, attrs=None) -> Song:
             setattr(song, k, v)
     else:
         song.in_songs = True
-    try:
-        song.save(force_insert=True)
-    except peewee.IntegrityError:
-        pass
+    song.save(force_insert=True)
     return song
 
 
