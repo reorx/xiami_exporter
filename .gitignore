@@ -1,6 +1,7 @@
 venv/
 __pycache__/
 XiamiExports/
+XiamiExports
 config.json
 fetch.py
 *.bak/

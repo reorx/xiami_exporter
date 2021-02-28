@@ -1,0 +1,62 @@
+{
+	"code": "SUCCESS",
+	"result": {
+		"status": "SUCCESS",
+		"data": {
+			"songPlayInfos": [{
+				"songId": 1770382009,
+				"playInfos": [{
+					"listenFile": "https://s192.xiami.net/42/67042/456390/1770382009_2529173_l.mp3?ccode=xiami_web_web&expire=86400&duration=123&psid=8873d891d611fc59e966fa8652054923&ups_client_netip=117.153.18.135&ups_ts=1609936100&ups_userid=932367&utid=&vid=1770382009&fn=1770382009_2529173_l.mp3&vkey=Bd1e008b105fb50cf6e9184813c9b28de",
+					"quality": "h",
+					"expire": 1610022440693,
+					"playVolume": 89,
+					"format": "mp3",
+					"fileSize": 2971637,
+					"downloadFileSize": 2971637,
+					"sampleRate": "44.1kHz",
+					"downloadSampleRate": "44.1kHz",
+					"bits": null,
+					"length": 123000,
+					"operations": [{
+						"purpose": 1,
+						"upgradeRole": 0,
+						"needVip": false,
+						"needPay": false,
+						"needSvip": false
+					}, {
+						"purpose": 2,
+						"upgradeRole": 0,
+						"needVip": false,
+						"needPay": false,
+						"needSvip": false
+					}]
+				}, {
+					"listenFile": "https://s128.xiami.net/42/67042/456390/1770382009_2529173_l.mp3?ccode=xiami_web_web&expire=86400&duration=123&psid=8873d891d611fc59e966fa8652054923&ups_client_netip=117.153.18.135&ups_ts=1609936100&ups_userid=932367&utid=&vid=1770382009&fn=1770382009_2529173_l.mp3&vkey=Bd1e008b105fb50cf6e9184813c9b28de",
+					"quality": "l",
+					"expire": 1610022440693,
+					"playVolume": 89,
+					"format": "mp3",
+					"fileSize": 1981491,
+					"downloadFileSize": 1981491,
+					"sampleRate": "44.1kHz",
+					"downloadSampleRate": "44.1kHz",
+					"bits": null,
+					"length": 123000,
+					"operations": [{
+						"purpose": 1,
+						"upgradeRole": 0,
+						"needVip": false,
+						"needPay": false,
+						"needSvip": false
+					}, {
+						"purpose": 2,
+						"upgradeRole": 0,
+						"needVip": false,
+						"needPay": false,
+						"needSvip": false
+					}]
+				}]
+			}]
+		}
+	}
+}
